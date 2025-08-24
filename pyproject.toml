@@ -1,0 +1,61 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "b-simulant"
+dynamic = ["version"]
+description = ''
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+keywords = []
+authors = [
+  { name = "Demi", email = "bjaiye1@gmail.com" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = []
+
+[project.urls]
+Documentation = "https://github.com/Demi/b-simulant#readme"
+Issues = "https://github.com/Demi/b-simulant/issues"
+Source = "https://github.com/Demi/b-simulant"
+
+[tool.hatch.version]
+path = "src/b_simulant/__about__.py"
+
+[tool.hatch.envs.types]
+extra-dependencies = [
+  "mypy>=1.0.0",
+]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:src/b_simulant tests}"
+
+[tool.coverage.run]
+source_pkgs = ["b_simulant", "tests"]
+branch = true
+parallel = true
+omit = [
+  "src/b_simulant/__about__.py",
+]
+
+[tool.coverage.paths]
+b_simulant = ["src/b_simulant", "*/b-simulant/src/b_simulant"]
+tests = ["tests", "*/b-simulant/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
