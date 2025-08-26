@@ -9,6 +9,7 @@ from .solver import Solver
 logger = logging.getLogger(__name__)
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from .modules import BioModule
+    from .visuals import VisualSpec
 
 
 class BioWorldEvent(Enum):
@@ -115,6 +116,44 @@ class BioWorld:
                 # Keep delivery robust; log and continue.
                 logger.exception("BioModule.on_signal raised for topic '%s'", topic)
                 continue
+
+    def collect_visuals(self) -> List[Dict[str, Any]]:
+        """Collect visual specs from all attached modules.
+
+        Returns a list of objects with module metadata and visuals, where each
+        visuals entry is a dict of shape: {"render": <type>, "data": <payload>}.
+        Modules that do not provide visuals are skipped.
+        """
+        out: List[Dict[str, Any]] = []
+        for module in list(self._biomodule_listeners.keys()):
+            try:
+                visuals = module.visualize()  # type: ignore[attr-defined]
+            except Exception:
+                logger.exception("BioModule.visualize raised for %s", module.__class__.__name__)
+                continue
+            if not visuals:
+                continue
+            if isinstance(visuals, list):
+                vis_list = visuals
+            else:
+                vis_list = [visuals]
+            # Basic shape check (render + data keys)
+            normed: List[Dict[str, Any]] = []
+            for v in vis_list:
+                if not isinstance(v, dict):
+                    continue
+                if "render" not in v or "data" not in v:
+                    continue
+                normed.append({"render": v["render"], "data": v["data"]})
+            if not normed:
+                continue
+            out.append(
+                {
+                    "module": module.__class__.__name__,
+                    "visuals": normed,
+                }
+            )
+        return out
 
     # Internal: emit to all listeners
     def _emit(self, event: BioWorldEvent, payload: Optional[Dict[str, Any]] = None) -> None:

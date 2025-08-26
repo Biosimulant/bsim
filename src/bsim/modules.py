@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Set, TYPE_CHECKING
+from typing import Any, Dict, Set, TYPE_CHECKING, Optional, List, Union
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from .world import BioWorld, BioWorldEvent
+    from .visuals import VisualSpec
 
 
 class BioModule(ABC):
@@ -50,3 +51,11 @@ class BioModule(ABC):
 
     def output_schemas(self) -> Dict[str, Any]:
         return {}
+
+    # --- Optional: visualization ---
+    # Modules can optionally expose a web-native visualization spec to be
+    # rendered by a browser client. Return either a single dict or a list of
+    # dicts with the fixed shape: {"render": <type>, "data": <payload>}.
+    # Default returns None (no visuals).
+    def visualize(self) -> Optional["VisualSpec" | List["VisualSpec"]]:
+        return None

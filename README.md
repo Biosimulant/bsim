@@ -74,6 +74,23 @@ See a fuller demonstration (including a custom process) in:
 
 - `examples/default_bio_solver.py`
 
+### Visuals from Modules
+
+Modules may optionally expose web-native visuals via `visualize()`, returning a dict or list of dicts with keys `render` and `data`. The world can collect them without any transport layer:
+
+```python
+class MyModule(bsim.BioModule):
+    def visualize(self):
+        return {"render": "timeseries", "data": {"series": [{"name": "s", "points": [[0.0, 1.0]]}]}}
+
+world = bsim.BioWorld(solver=bsim.FixedStepSolver())
+world.add_biomodule(MyModule())
+world.simulate(steps=1, dt=0.1)
+print(world.collect_visuals())  # [{"module": "MyModule", "visuals": [...]}]
+```
+
+See `examples/visuals_demo.py` for a minimal end-to-end example.
+
 ## API Reference
 
 ### TemperatureParams
