@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING, Tuple
 
 from .solver import Solver
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -34,6 +34,9 @@ class BioWorld:
     solver: Solver
     listeners: List[Listener] = field(default_factory=list)
     _biomodule_listeners: Dict["BioModule", Listener] = field(default_factory=dict, init=False, repr=False)
+    _signal_routes: Dict[Tuple["BioModule", str], List["BioModule"]] = field(
+        default_factory=dict, init=False, repr=False
+    )
 
     def on(self, listener: Listener) -> None:
         """Register a listener for world events."""
@@ -76,6 +79,39 @@ class BioWorld:
         if listener is not None:
             self.off(listener)
 
+    # --- Directed module-to-module signals (biosignals) ---
+    def connect_biomodules(self, src: "BioModule", topic: str, dst: "BioModule") -> None:
+        """Connect a source module topic to a destination module.
+
+        Messages published by `src` on `topic` will be delivered to `dst.on_signal`.
+        """
+        key = (src, topic)
+        lst = self._signal_routes.setdefault(key, [])
+        if dst not in lst:
+            lst.append(dst)
+
+    def disconnect_biomodules(self, src: "BioModule", topic: str, dst: "BioModule") -> None:
+        key = (src, topic)
+        lst = self._signal_routes.get(key)
+        if not lst:
+            return
+        try:
+            lst.remove(dst)
+        except ValueError:
+            return
+        if not lst:
+            self._signal_routes.pop(key, None)
+
+    def publish_biosignal(self, src: "BioModule", topic: str, payload: Dict[str, Any]) -> None:
+        """Publish a module-originated message to connected modules only."""
+        key = (src, topic)
+        for dst in list(self._signal_routes.get(key, [])):
+            try:
+                dst.on_signal(topic, payload, source=src, world=self)
+            except Exception:
+                # Keep delivery robust; consider emitting ERROR later.
+                continue
+
     # Internal: emit to all listeners
     def _emit(self, event: BioWorldEvent, payload: Optional[Dict[str, Any]] = None) -> None:
         data = payload or {}
@@ -111,3 +147,14 @@ class BioWorld:
             self._emit(BioWorldEvent.AFTER_SIMULATION, {"steps": steps, "dt": dt})
 
         return result
+
+    # --- Convenience wiring loader ---
+    def load_wiring(self, path: str) -> None:
+        """Load wiring from a YAML/TOML file and apply it to this world.
+
+        Delegates to the wiring loader in `bsim.wiring`. See `load_wiring` for
+        supported formats and requirements (e.g., `pyyaml` for YAML).
+        """
+        from .wiring import load_wiring as _load_wiring
+
+        _load_wiring(self, path)

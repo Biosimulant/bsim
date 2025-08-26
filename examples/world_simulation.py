@@ -42,6 +42,40 @@ class StepLoggerModule(bsim.BioModule):
         print(f"[Module] {event.name} @ t={payload.get('t')} i={payload.get('i')}")
 
 
+class Eye(bsim.BioModule):
+    """Publishes a vision biosignal each STEP (toy example)."""
+
+    def subscriptions(self):
+        return {bsim.BioWorldEvent.STEP}
+
+    def on_event(self, event, payload, world):
+        # Emit a directed biosignal to connected modules only
+        world.publish_biosignal(self, topic="vision", payload={"photon": True, "t": payload.get("t")})
+
+
+class LGN(bsim.BioModule):
+    """Receives Eye.vision and relays to thalamus channel."""
+
+    def on_event(self, event, payload, world):
+        pass  # no-op for global events in this demo
+
+    def on_signal(self, topic, payload, source, world):
+        if topic == "vision":
+            # Relay to downstream consumers via a new topic
+            world.publish_biosignal(self, topic="thalamus", payload={"relay": payload})
+
+
+class SuperiorColliculus(bsim.BioModule):
+    """Receives LGN.thalamus signals."""
+
+    def on_event(self, event, payload, world):
+        pass
+
+    def on_signal(self, topic, payload, source, world):
+        if topic == "thalamus":
+            print("[SC] received:", payload)
+
+
 def main() -> None:
     # Using a custom user-defined solver by subclassing bsim.Solver
     world = bsim.BioWorld(solver=CustomSolver())
@@ -56,6 +90,19 @@ def main() -> None:
     built_in_world.add_biomodule(StepLoggerModule())
     built_in_result = built_in_world.simulate(steps=3, dt=0.5)
     print("FixedStepSolver Result:", built_in_result)
+
+    # Demonstrate module-to-module biosignal routing (Eye -> LGN -> SC)
+    bw = bsim.BioWorld(solver=bsim.FixedStepSolver())
+    eye = Eye()
+    lgn = LGN()
+    sc = SuperiorColliculus()
+
+    bw.add_biomodule(eye)
+    bw.add_biomodule(lgn)
+    bw.add_biomodule(sc)
+    bw.connect_biomodules(eye, topic="vision", dst=lgn)
+    bw.connect_biomodules(lgn, topic="thalamus", dst=sc)
+    bw.simulate(steps=2, dt=0.2)
 
 
 if __name__ == "__main__":

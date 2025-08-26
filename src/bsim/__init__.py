@@ -5,5 +5,24 @@ from .__about__ import __version__
 from .world import BioWorld, BioWorldEvent
 from .solver import Solver, FixedStepSolver
 from .modules import BioModule
+from .wiring import (
+    WiringBuilder,
+    build_from_spec,
+    load_wiring,
+    load_wiring_toml,
+    load_wiring_yaml,
+)
 
-__all__ = ["__version__", "BioWorld", "BioWorldEvent", "Solver", "FixedStepSolver", "BioModule"]
+__all__ = [
+    "__version__",
+    "BioWorld",
+    "BioWorldEvent",
+    "Solver",
+    "FixedStepSolver",
+    "BioModule",
+    "WiringBuilder",
+    "build_from_spec",
+    "load_wiring",
+    "load_wiring_toml",
+    "load_wiring_yaml",
+]
