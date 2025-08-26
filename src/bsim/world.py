@@ -140,11 +140,8 @@ class BioWorld:
             self._loaded_emitted = True
         self._emit(BioWorldEvent.BEFORE_SIMULATION, {"steps": steps, "dt": dt})
 
-        def emit(event: BioWorldEvent, payload: Optional[Dict[str, Any]] = None) -> None:
-            self._emit(event, payload)
-
         try:
-            result = self.solver.simulate(steps=steps, dt=dt, emit=emit)
+            result = self.solver.simulate(steps=steps, dt=dt, emit=self._emit)
         except Exception as exc:  # pragma: no cover - minimal error path
             self._emit(BioWorldEvent.ERROR, {"error": exc})
             raise
