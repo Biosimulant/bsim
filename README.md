@@ -1,7 +1,7 @@
-# b-simulant
+# bsim
 
-[![PyPI - Version](https://img.shields.io/pypi/v/b-simulant.svg)](https://pypi.org/project/b-simulant)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/b-simulant.svg)](https://pypi.org/project/b-simulant)
+[![PyPI - Version](https://img.shields.io/pypi/v/bsim.svg)](https://pypi.org/project/bsim)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/bsim.svg)](https://pypi.org/project/bsim)
 
 -----
 
@@ -13,9 +13,9 @@
 ## Installation
 
 ```console
-pip install b-simulant
+pip install bsim
 ```
 
 ## License
 
-`b-simulant` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
+`bsim` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.

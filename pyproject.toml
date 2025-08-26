@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "b-simulant"
+name = "bsim"
 dynamic = ["version"]
 description = ''
 readme = "README.md"
@@ -27,9 +27,9 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-Documentation = "https://github.com/Demi/b-simulant#readme"
-Issues = "https://github.com/Demi/b-simulant/issues"
-Source = "https://github.com/Demi/b-simulant"
+Documentation = "https://github.com/Demi/bsim#readme"
+Issues = "https://github.com/Demi/bsim/issues"
+Source = "https://github.com/Demi/bsim"
 
 [tool.hatch.version]
 path = "src/bsim/__about__.py"
@@ -50,8 +50,8 @@ omit = [
 ]
 
 [tool.coverage.paths]
-bsim = ["src/bsim", "*/b-simulant/src/bsim"]
-tests = ["tests", "*/b-simulant/tests"]
+bsim = ["src/bsim", "*/bsim/src/bsim"]
+tests = ["tests", "*/bsim/tests"]
 
 [tool.coverage.report]
 exclude_lines = [
