@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING, Tuple
 import logging
 
 from .solver import Solver
+from .visuals import normalize_visuals
 logger = logging.getLogger(__name__)
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from .modules import BioModule
@@ -133,18 +134,7 @@ class BioWorld:
                 continue
             if not visuals:
                 continue
-            if isinstance(visuals, list):
-                vis_list = visuals
-            else:
-                vis_list = [visuals]
-            # Basic shape check (render + data keys)
-            normed: List[Dict[str, Any]] = []
-            for v in vis_list:
-                if not isinstance(v, dict):
-                    continue
-                if "render" not in v or "data" not in v:
-                    continue
-                normed.append({"render": v["render"], "data": v["data"]})
+            normed = normalize_visuals(visuals)  # filters invalid
             if not normed:
                 continue
             out.append(

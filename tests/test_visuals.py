@@ -49,3 +49,30 @@ def test_collect_visuals_with_modules(bsim):
     g_vis = kinds["GraphMod"]["visuals"][0]
     assert g_vis["render"] == "graph"
     assert "data" in g_vis
+
+
+def test_visuals_invalid_shapes_are_filtered(bsim):
+    world = bsim.BioWorld(solver=bsim.FixedStepSolver())
+
+    class Bad1(bsim.BioModule):
+        def visualize(self):
+            return {"data": {"x": 1}}  # missing 'render'
+
+    class Bad2(bsim.BioModule):
+        def visualize(self):
+            return {"render": "timeseries", "data": set([1, 2, 3])}  # not JSON-serializable
+
+    class Good(bsim.BioModule):
+        def visualize(self):
+            return {"render": "bar", "data": {"items": [{"label": "a", "value": 1}]}}
+
+    world.add_biomodule(Bad1())
+    world.add_biomodule(Bad2())
+    world.add_biomodule(Good())
+    world.simulate(steps=1, dt=0.1)
+
+    collected = world.collect_visuals()
+    # Only the good module should appear
+    assert len(collected) == 1
+    assert collected[0]["module"] == "Good"
+    assert collected[0]["visuals"][0]["render"] == "bar"

@@ -12,7 +12,7 @@ from .solver import (
     ScalarRateParams,
 )
 from .modules import BioModule
-from .visuals import VisualSpec
+from .visuals import VisualSpec, validate_visual_spec, normalize_visuals
 from .wiring import (
     WiringBuilder,
     build_from_spec,
@@ -32,6 +32,8 @@ __all__ = [
     "TemperatureParams",
     "ScalarRateParams",
     "VisualSpec",
+    "validate_visual_spec",
+    "normalize_visuals",
     "BioModule",
     "WiringBuilder",
     "build_from_spec",
