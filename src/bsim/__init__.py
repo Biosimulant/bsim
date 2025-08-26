@@ -4,5 +4,6 @@
 from .__about__ import __version__
 from .world import BioWorld, BioWorldEvent
 from .solver import Solver, FixedStepSolver
+from .modules import BioModule
 
-__all__ = ["__version__", "BioWorld", "BioWorldEvent", "Solver", "FixedStepSolver"]
+__all__ = ["__version__", "BioWorld", "BioWorldEvent", "Solver", "FixedStepSolver", "BioModule"]

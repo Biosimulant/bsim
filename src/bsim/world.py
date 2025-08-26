@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 
 from .solver import Solver
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from .modules import BioModule
 
 
 class BioWorldEvent(Enum):
@@ -31,6 +33,7 @@ class BioWorld:
 
     solver: Solver
     listeners: List[Listener] = field(default_factory=list)
+    _biomodule_listeners: Dict["BioModule", Listener] = field(default_factory=dict, init=False, repr=False)
 
     def on(self, listener: Listener) -> None:
         """Register a listener for world events."""
@@ -42,6 +45,36 @@ class BioWorld:
             self.listeners.remove(listener)
         except ValueError:
             pass
+
+    def add_biomodule(self, module: "BioModule") -> None:
+        """Attach a BioModule and auto-subscribe it to events.
+
+        Modules can declare selective subscriptions via `module.subscriptions()`.
+        If empty, the module receives all events.
+        """
+        if module in self._biomodule_listeners:
+            return
+
+        subs = set(module.subscriptions())  # snapshot
+
+        def _module_listener(event: BioWorldEvent, payload: Dict[str, Any]) -> None:
+            if subs and event not in subs:
+                return
+            try:
+                module.on_event(event, payload, self)
+            except Exception:
+                # Modules should not break the world loop.
+                # Consider emitting BioWorldEvent.ERROR if needed.
+                return
+
+        self._biomodule_listeners[module] = _module_listener
+        self.on(_module_listener)
+
+    def remove_biomodule(self, module: "BioModule") -> None:
+        """Detach a previously added BioModule."""
+        listener = self._biomodule_listeners.pop(module, None)
+        if listener is not None:
+            self.off(listener)
 
     # Internal: emit to all listeners
     def _emit(self, event: BioWorldEvent, payload: Optional[Dict[str, Any]] = None) -> None:
