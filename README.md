@@ -74,6 +74,34 @@ See a fuller demonstration (including a custom process) in:
 
 - `examples/default_bio_solver.py`
 
+## API Reference
+
+### TemperatureParams
+
+- initial: float — starting temperature value.
+- delta_per_step: float — additive change applied each simulation step.
+- rate_per_time: float — rate-based change per unit time (multiplied by `dt`).
+- bounds: tuple[float, float] | None — optional `(min, max)` clamp.
+
+Example:
+
+```python
+bsim.TemperatureParams(initial=300.0, delta_per_step=1.0, rate_per_time=0.5, bounds=(273.15, 315.15))
+```
+
+### ScalarRateParams
+
+- name: str — quantity name (e.g., "water", "oxygen").
+- initial: float — starting value for the quantity.
+- rate_per_time: float — change per unit time (value += rate_per_time * dt).
+- bounds: tuple[float, float] | None — optional `(min, max)` clamp.
+
+Example:
+
+```python
+bsim.ScalarRateParams(name="water", initial=1.0, rate_per_time=-0.6, bounds=(0.0, 1.0))
+```
+
 ## License
 
 `bsim` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
