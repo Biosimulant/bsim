@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from dataclasses import dataclass, replace
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 
 class Solver(ABC):
@@ -22,6 +22,14 @@ class Solver(ABC):
         emit: Callable[["BioWorldEvent", Dict[str, Any]], None],
     ) -> Any:
         raise NotImplementedError
+
+    def with_overrides(self, overrides: Mapping[str, Any]) -> "Solver":
+        """Return a solver configured with the provided run overrides.
+
+        Default behavior is a no-op (returns self). Implementations may return
+        a new solver instance (preferred) or self.
+        """
+        return self
 
 
 class FixedStepSolver(Solver):
@@ -153,6 +161,11 @@ class DefaultBioSolver(Solver):
         oxygen: Optional[ScalarRateParams] = None,
         processes: Optional[List[Process]] = None,
     ) -> None:
+        self._temperature_params = temperature
+        self._water_params = water
+        self._oxygen_params = oxygen
+        self._extra_processes = list(processes) if processes else []
+
         # Assemble process list in a stable order.
         procs: List[Process] = []
         if temperature is not None:
@@ -161,8 +174,8 @@ class DefaultBioSolver(Solver):
             procs.append(ScalarRateProcess(water))
         if oxygen is not None:
             procs.append(ScalarRateProcess(oxygen))
-        if processes:
-            procs.extend(processes)
+        if self._extra_processes:
+            procs.extend(self._extra_processes)
         self._processes = procs
 
         # Initialize state from processes.
@@ -170,6 +183,26 @@ class DefaultBioSolver(Solver):
         for p in self._processes:
             state.update(p.init_state())
         self._initial_state = state
+
+    def with_overrides(self, overrides: Mapping[str, Any]) -> "Solver":
+        # Currently supports temperature override for UI integration.
+        if not overrides:
+            return self
+        if "temperature" not in overrides:
+            return self
+        if self._temperature_params is None:
+            return self
+        try:
+            temp_val = float(overrides["temperature"])
+        except Exception:
+            return self
+        new_temp = replace(self._temperature_params, initial=temp_val)
+        return DefaultBioSolver(
+            temperature=new_temp,
+            water=self._water_params,
+            oxygen=self._oxygen_params,
+            processes=list(self._extra_processes) if self._extra_processes else None,
+        )
 
     def simulate(
         self,

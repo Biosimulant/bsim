@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING, Tuple
 import logging
+import threading
 
 from .solver import Solver
 from .visuals import normalize_visuals
@@ -21,9 +22,15 @@ class BioWorldEvent(Enum):
     STEP = auto()
     AFTER_SIMULATION = auto()
     ERROR = auto()
+    PAUSED = auto()
 
 
 Listener = Callable[[BioWorldEvent, Dict[str, Any]], None]
+
+
+class SimulationStop(Exception):
+    """Internal cooperative stop signal for solvers/world loops."""
+    pass
 
 
 @dataclass
@@ -42,6 +49,12 @@ class BioWorld:
         default_factory=dict, init=False, repr=False
     )
     _loaded_emitted: bool = field(default=False, init=False, repr=False)
+    _stop_requested: bool = field(default=False, init=False, repr=False)
+    _run_event: threading.Event = field(default_factory=threading.Event, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        # Allow steps to run by default
+        self._run_event.set()
 
     def on(self, listener: Listener) -> None:
         """Register a listener for world events."""
@@ -145,8 +158,29 @@ class BioWorld:
             )
         return out
 
+    # Optional: reset hook for modules before a new run
+    def _reset_modules(self) -> None:
+        for module in list(self._biomodule_listeners.keys()):
+            try:
+                reset_fn = getattr(module, "reset", None)
+                if callable(reset_fn):
+                    reset_fn()  # type: ignore[misc]
+            except Exception:
+                logger.exception("BioModule.reset raised for %s", module.__class__.__name__)
+
     # Internal: emit to all listeners
     def _emit(self, event: BioWorldEvent, payload: Optional[Dict[str, Any]] = None) -> None:
+        # Cooperative controls:
+        # - pause/resume is enforced at STEP boundaries
+        # - stop is enforced at STEP boundaries (so AFTER_SIMULATION still emits)
+        if event == BioWorldEvent.STEP:
+            if self._stop_requested:
+                raise SimulationStop()
+            # Block here if paused until resume
+            self._run_event.wait()
+            if self._stop_requested:
+                raise SimulationStop()
+
         data = payload or {}
         for listener in list(self.listeners):
             try:
@@ -163,6 +197,13 @@ class BioWorld:
         call. Propagates solver-emitted events via the provided `emit` callback.
         """
 
+        # Reset cooperative flags for this run
+        self._stop_requested = False
+        self._run_event.set()
+
+        # Give modules a chance to reset their internal state per run (if they implement reset()).
+        self._reset_modules()
+
         # Emit LOADED only once to indicate readiness.
         if not self._loaded_emitted:
             self._emit(BioWorldEvent.LOADED, {"steps": steps, "dt": dt})
@@ -171,6 +212,9 @@ class BioWorld:
 
         try:
             result = self.solver.simulate(steps=steps, dt=dt, emit=self._emit)
+        except SimulationStop:
+            # Graceful cooperative stop, no ERROR event
+            result = None
         except Exception as exc:  # pragma: no cover - minimal error path
             self._emit(BioWorldEvent.ERROR, {"error": exc})
             raise
@@ -178,6 +222,21 @@ class BioWorld:
             self._emit(BioWorldEvent.AFTER_SIMULATION, {"steps": steps, "dt": dt})
 
         return result
+
+    # --- Cooperative controls ---
+    def request_stop(self) -> None:
+        # Wake up any paused loop and signal stop on next STEP
+        self._stop_requested = True
+        self._run_event.set()
+
+    def request_pause(self) -> None:
+        # Next STEP emit will block until resume
+        self._run_event.clear()
+        # Emit PAUSED event to listeners for UI/state tracking
+        self._emit(BioWorldEvent.PAUSED, {})
+
+    def request_resume(self) -> None:
+        self._run_event.set()
 
     # --- Convenience wiring loader ---
     def load_wiring(self, path: str) -> None:

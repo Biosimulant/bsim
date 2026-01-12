@@ -19,6 +19,13 @@ Wiring and configuration
 - Use `WiringBuilder` in code or load a YAML/TOML file to declare modules and connections.
 - Optional port metadata on modules (`inputs()`, `outputs()`) enables connection validation.
 
+Adapters (standard-agnostic)
+- `bsim` is designed to host adapters that wrap existing simulators/standards and expose them as modules.
+- The core stays focused on orchestration, wiring contracts, and visualization (SimUI) rather than re-implementing every domain runtime.
+
+Near-term focus (beachhead)
+- Neuroscience demos: single neuron + small E/I microcircuits with strong visuals (raster, firing rate, Vm traces) and reproducible configs.
+
 Minimal data examples (after wiring Eye → LGN on topic "visual_stream")
 - `world.describe_wiring()` → `[('Eye', 'visual_stream', 'LGN')]`
 - After `world.simulate(steps=2, dt=0.1)` with `FixedStepSolver`, result → `{ 'steps': 2, 'time': 0.2 }`

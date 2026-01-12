@@ -1,0 +1,137 @@
+# Product Requirements Document (PRD): Biosimulant Core (`B-Simulant` / `bsim`)
+
+Status: Draft (living)
+Last updated: 2026-01-12
+Owners: (add)
+
+## 1) Summary
+
+`bsim` is a modular biological simulation engine focused on composability: users build simulations by wiring reusable `BioModule`s into a `BioWorld`, driven by an injected `Solver`. The project also includes SimUI: a Python-declared web UI for controlling runs and rendering module visuals via a JSON contract.
+
+This PRD describes the end-to-end product, from core simulation primitives through configuration, UI, plugins/adapters, and a future hosted run-management platform.
+
+## 2) Goals
+
+### Near-term (v0.x)
+- Provide a stable, minimal core API: `BioWorld`, `BioWorldEvent`, `BioModule`, `Solver`, wiring loaders/builders, and a minimal visuals contract.
+- Ensure packaging is correct and optional dependencies are truly optional.
+- Provide a functional “run from config” workflow for YAML/TOML wiring specs (CLI is planned).
+- Provide SimUI that can run local simulations, stream/poll status, show events, and render visuals.
+- Ship one credible domain reference pack focused on neuroscience (single neuron + small microcircuit) to prove end-to-end usability.
+
+### Mid-term (v1.0)
+- Define a plugin SDK: third-party modules/solvers/visual renderers registered via entry points.
+- Standardize configuration and contracts (versioned schemas, compatibility guarantees).
+- Add at least 1–2 domain module packs as reference implementations (not “complete biology”, but credible end-to-end examples).
+- Add basic interoperability (import/export) with at least one modeling standard or a constrained subset.
+  - Preference: standards are integrated via adapters (external packages) rather than being reimplemented in core.
+
+### Long-term
+- “Hybrid execution”: batch runs, parameter sweeps, distributed execution options.
+- Web platform: project management, storage, collaboration, cloud execution.
+
+## 3) Non-goals (for core repo scope)
+
+- Implementing all biological domains (MD/CA/PKPD/etc.) as first-class built-ins immediately.
+- Full SBML/CellML fidelity in early versions.
+- Production-grade distributed compute orchestration in early versions.
+- Replacing domain-specific simulators; `bsim` is a composition/orchestration layer first.
+  - `bsim` should embrace adapters to existing simulators/standards (e.g., Brian2/NEURON/NeuroML tooling), not compete with them.
+
+## 4) Personas & primary use cases
+
+### Persona A: Researcher building a modular experiment
+- Needs: quick prototyping, event hooks, module composition, reproducible configs.
+- Success: can wire modules, run a simulation, and inspect results/visuals.
+
+### Persona B: Developer building reusable module packs
+- Needs: stable base interfaces, plugin discovery, validation, good docs.
+- Success: can publish a module package and have `bsim` discover and validate it.
+
+### Persona C: Educator/demonstrator
+- Needs: nice UI, easy-to-run examples, good visuals.
+- Success: can run demos locally with `pip install bsim[ui]` and a single command.
+
+### Persona D: Platform team (future web platform)
+- Needs: API boundaries, data contracts, run lifecycle.
+- Success: can execute simulations via an API and store results/events/visuals.
+
+## 5) Core requirements (functional)
+
+### R1: Simulation runtime
+- Must support a single `BioWorld` coordinating:
+  - lifecycle events
+  - module event listeners
+  - directed module-to-module signals
+- Must be robust to module/listener errors (log + continue; configurable later).
+- Must support cooperative pause/resume/stop with predictable semantics.
+
+### R2: Solvers
+- Must define a stable solver contract (`Solver.simulate(..., emit=...)`).
+- Must ship at least one reference solver (fixed-step).
+- Must enable extension (processes/custom solvers).
+
+### R3: Modules
+- Must define module base interface and optional capabilities:
+  - event subscriptions
+  - biosignal handlers
+  - port declarations for validation
+  - visuals exposure
+
+### R4: Wiring/configuration
+- Must allow wiring in code and via configuration files.
+- Must validate wiring against declared ports when present.
+- Must support YAML and TOML (with optional deps).
+- Must provide helpful error messages.
+- Should provide a CLI to run wiring specs.
+
+### R5: Visuals contract
+- Must define a JSON-serializable, renderer-agnostic `VisualSpec` contract.
+- Must provide server-side validation/normalization.
+- Must support a small set of core types (timeseries, bar, table, image, graph placeholder, JSON fallback).
+
+### R6: SimUI
+- Must mount and serve a local web UI with:
+  - controls (steps/dt + extensible controls)
+  - run/pause/resume/reset
+  - event log and visuals panel
+  - polling-based transport (no websockets required)
+- Must be optional (`bsim` base should import without UI deps).
+
+### R7: Plugin SDK (mid-term)
+- Must support discovery and registration of:
+  - modules
+  - solvers
+  - (optionally) renderers / adapters
+- Must be versioned and compatible across `bsim` versions with clear rules.
+
+### R8: Web platform (long-term)
+- Must support:
+  - project/run management
+  - result persistence
+  - UI dashboards consuming the same contracts
+
+## 6) Non-functional requirements
+
+- Correct packaging and dependency boundaries (optional extras truly optional).
+- Type hints and stable public exports (`__all__`).
+- Test coverage for:
+  - event flow and error paths
+  - wiring validation and loaders
+  - visuals validation
+  - CLI behaviors
+  - SimUI API contract
+- Security posture for config-driven imports (safe mode/allowlist options).
+- Reproducibility: pinned build steps for UI assets; deterministic builds.
+
+## 7) Out-of-scope repos / interfaces
+
+`BUSINESS_CASE.md` references a larger mono-project:
+- `bsim-backend/`
+- `biosimulant-landing-page/`
+
+This plan defines interfaces so those repos can integrate later, but the implementation lives elsewhere.
+
+## 8) Milestones (high-level)
+
+See `tasks/ROADMAP.md` for a sequenced plan and milestone gates.

@@ -1,0 +1,101 @@
+# E/I Microcircuit Simulation Config
+# Run with: python -c "import bsim; w = bsim.BioWorld(solver=bsim.FixedStepSolver()); w.load_wiring('examples/configs/neuro_microcircuit.toml'); w.simulate(steps=3000, dt=0.0001); print([v['module'] for v in w.collect_visuals()])"
+
+# External Poisson input
+[modules.poisson]
+class = "bsim.packs.neuro.PoissonInput"
+args = { n = 40, rate_hz = 15.0, seed = 42 }
+
+# Excitatory population (Regular Spiking)
+[modules.exc]
+class = "bsim.packs.neuro.IzhikevichPopulation"
+args = { n = 40, preset = "RS", I_bias = 0.0, sample_indices = [0, 1, 2] }
+
+# Inhibitory population (Fast Spiking)
+[modules.inh]
+class = "bsim.packs.neuro.IzhikevichPopulation"
+args = { n = 10, preset = "FS", I_bias = 0.0, sample_indices = [0] }
+
+# Synapses: External -> E
+[modules.syn_ext_e]
+class = "bsim.packs.neuro.ExpSynapseCurrent"
+args = { n_pre = 40, n_post = 40, p_connect = 0.1, weight = 1.0, tau = 0.005, seed = 42 }
+
+# Synapses: E -> E
+[modules.syn_ee]
+class = "bsim.packs.neuro.ExpSynapseCurrent"
+args = { n_pre = 40, n_post = 40, p_connect = 0.1, weight = 0.3, tau = 0.005, seed = 43 }
+
+# Synapses: E -> I
+[modules.syn_ei]
+class = "bsim.packs.neuro.ExpSynapseCurrent"
+args = { n_pre = 40, n_post = 10, p_connect = 0.1, weight = 0.5, tau = 0.005, seed = 44 }
+
+# Synapses: I -> E
+[modules.syn_ie]
+class = "bsim.packs.neuro.ExpSynapseCurrent"
+args = { n_pre = 10, n_post = 40, p_connect = 0.1, weight = -1.5, tau = 0.010, seed = 45 }
+
+# Synapses: I -> I
+[modules.syn_ii]
+class = "bsim.packs.neuro.ExpSynapseCurrent"
+args = { n_pre = 10, n_post = 10, p_connect = 0.1, weight = -0.5, tau = 0.010, seed = 46 }
+
+# Monitors
+[modules.spike_mon_e]
+class = "bsim.packs.neuro.SpikeMonitor"
+args = { max_neurons = 40, width = 600, height = 200 }
+
+[modules.spike_mon_i]
+class = "bsim.packs.neuro.SpikeMonitor"
+args = { max_neurons = 10, width = 600, height = 100 }
+
+[modules.rate_mon]
+class = "bsim.packs.neuro.RateMonitor"
+args = { window_size = 0.02, n_neurons = 50 }
+
+[modules.state_mon]
+class = "bsim.packs.neuro.StateMonitor"
+args = { max_points = 5000 }
+
+[modules.metrics]
+class = "bsim.packs.neuro.NeuroMetrics"
+args = { n_neurons = 50 }
+
+# Wiring
+
+[[wiring]]
+from = "poisson.out.spikes"
+to = ["syn_ext_e.in.spikes"]
+
+[[wiring]]
+from = "syn_ext_e.out.current"
+to = ["exc.in.current"]
+
+[[wiring]]
+from = "exc.out.spikes"
+to = ["syn_ee.in.spikes", "syn_ei.in.spikes", "spike_mon_e.in.spikes", "rate_mon.in.spikes", "metrics.in.spikes"]
+
+[[wiring]]
+from = "exc.out.state"
+to = ["state_mon.in.state"]
+
+[[wiring]]
+from = "inh.out.spikes"
+to = ["syn_ie.in.spikes", "syn_ii.in.spikes", "spike_mon_i.in.spikes", "rate_mon.in.spikes"]
+
+[[wiring]]
+from = "syn_ee.out.current"
+to = ["exc.in.current"]
+
+[[wiring]]
+from = "syn_ie.out.current"
+to = ["exc.in.current"]
+
+[[wiring]]
+from = "syn_ei.out.current"
+to = ["inh.in.current"]
+
+[[wiring]]
+from = "syn_ii.out.current"
+to = ["inh.in.current"]

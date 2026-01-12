@@ -1,0 +1,34 @@
+# Single Neuron Simulation Config
+# Run with: python -c "import bsim; w = bsim.BioWorld(solver=bsim.FixedStepSolver()); w.load_wiring('examples/configs/neuro_single_neuron.toml'); w.simulate(steps=5000, dt=0.0001); print(w.collect_visuals())"
+
+[modules.current]
+class = "bsim.packs.neuro.StepCurrent"
+args = { I = 10.0 }
+
+[modules.neuron]
+class = "bsim.packs.neuro.IzhikevichPopulation"
+args = { n = 1, preset = "RS", sample_indices = [0] }
+
+[modules.spike_mon]
+class = "bsim.packs.neuro.SpikeMonitor"
+args = { max_neurons = 1, width = 600, height = 200 }
+
+[modules.state_mon]
+class = "bsim.packs.neuro.StateMonitor"
+args = { max_points = 5000 }
+
+[modules.metrics]
+class = "bsim.packs.neuro.NeuroMetrics"
+args = { n_neurons = 1 }
+
+[[wiring]]
+from = "current.out.current"
+to = ["neuron.in.current"]
+
+[[wiring]]
+from = "neuron.out.spikes"
+to = ["spike_mon.in.spikes", "metrics.in.spikes"]
+
+[[wiring]]
+from = "neuron.out.state"
+to = ["state_mon.in.state"]

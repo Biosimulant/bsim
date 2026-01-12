@@ -18,7 +18,7 @@ Tip: Import the library as `import bsim`.
 - Build distribution (if `build` installed): `python -m build`
 
 ## Coding Style & Naming Conventions
-- Python 3.8+; 4-space indentation; PEP 8 compliant.
+- Python 3.10+; 4-space indentation; PEP 8 compliant.
 - Use type hints throughout (public APIs and examples).
 - Naming: modules/functions `snake_case`, classes/enums `PascalCase` (e.g., `BioWorldEvent`).
 - Keep public API minimal and explicit via `__all__` in `bsim`.
@@ -43,3 +43,9 @@ Tip: Import the library as `import bsim`.
 - Dependency injection: `BioWorld(solver=...)` with `Solver.simulate(steps, dt, emit)`.
 - Events: `BioWorldEvent` published by world/solver; subscribe via `world.on(...)`.
 - Modules: implement `BioModule` and add with `world.add_biomodule(...)`; use `subscriptions()` to filter events.
+
+### SimUI (Dev Notes)
+- Python-first UI under `bsim.simui`: declare controls/outputs, inject into a `BioWorld`, and `launch()` or `mount()`.
+- Frontend is React/Vite (prebuilt) and ships as static assets; no npm required for users.
+- Polling-only transport: the SPA polls `/api/status`, `/api/events`, `/api/visuals`. SSE/websockets can be added later.
+- VisualSpec JSON contract drives rendering (timeseries, bar, table, image; graph placeholder; JSON fallback).

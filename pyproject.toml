@@ -7,7 +7,7 @@ name = "bsim"
 dynamic = ["version"]
 description = ''
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = "MIT"
 keywords = []
 authors = [
@@ -16,8 +16,6 @@ authors = [
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -75,4 +73,16 @@ dev = [
   "pytest-cov>=4",
   "pyyaml>=6",
   "tomli>=2; python_version < '3.11'",
+]
+ui = [
+  "fastapi>=0.110,<1",
+  "uvicorn>=0.23",
+]
+
+[tool.hatch.build]
+include = [
+  "src/bsim/simui/static/**",
+]
+exclude = [
+  "src/bsim/simui/_frontend/**",
 ]
