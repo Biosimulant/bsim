@@ -47,5 +47,5 @@ Tip: Import the library as `import bsim`.
 ### SimUI (Dev Notes)
 - Python-first UI under `bsim.simui`: declare controls/outputs, inject into a `BioWorld`, and `launch()` or `mount()`.
 - Frontend is React/Vite (prebuilt) and ships as static assets; no npm required for users.
-- Polling-only transport: the SPA polls `/api/status`, `/api/events`, `/api/visuals`. SSE/websockets can be added later.
+- SSE transport: the SPA connects to `/api/stream` for real-time updates. Polling endpoints (`/api/status`, `/api/events`, `/api/visuals`) available for fallback.
 - VisualSpec JSON contract drives rendering (timeseries, bar, table, image; graph placeholder; JSON fallback).

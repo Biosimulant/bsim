@@ -6,8 +6,52 @@
 # The parameters are tuned to produce oscillating population dynamics
 # characteristic of predator-prey systems.
 #
-# Run with:
-#   python examples/ecology_simui_demo.py --config examples/configs/ecology_predator_prey.yaml
+# Run with generic CLI runner (no demo script needed):
+#   python -m bsim examples/configs/ecology_predator_prey.yaml --simui
+#   python -m bsim examples/configs/ecology_predator_prey.yaml --simui --open
+#   python -m bsim examples/configs/ecology_predator_prey.yaml --steps 5000  # headless
+
+# Metadata for SimUI (optional but recommended)
+meta:
+  title: "Predator-Prey Simulation"
+  description: |
+    ## Classic Predator-Prey Simulation
+
+    This simulation demonstrates **Lotka-Volterra style** population dynamics
+    between rabbits (prey) and foxes (predators).
+
+    ### Network Architecture
+
+    ```
+    ┌─────────────┐
+    │ Environment │──conditions──┬────────────────────┐
+    └─────────────┘              │                    │
+                                 ▼                    ▼
+                          ┌──────────┐         ┌──────────┐
+                          │ Rabbits  │         │  Foxes   │
+                          │  (prey)  │         │(predator)│
+                          └────┬─────┘         └────┬─────┘
+                               │                    │
+                  population_state         population_state
+                               │                    │
+                               ▼                    ▼
+                          ┌────────────────────────────┐
+                          │    Predation Interaction   │
+                          └─────────────┬──────────────┘
+                                        │
+                        ┌───────────────┼───────────────┐
+                        ▼               │               ▼
+                  (kills prey)          │        (feeds predator)
+                        │               ▼               │
+                        └────────► Monitors ◄──────────┘
+    ```
+
+    ### What to Observe
+
+    - **Population Oscillations**: Classic predator-prey cycles
+    - **Phase Space Plot**: Trajectory shows limit cycles or equilibrium
+    - **Coexistence**: Both species should survive long-term
+  solver: fixed  # Use "default" for temperature slider support
 
 modules:
   # Environment broadcasts conditions to all organisms

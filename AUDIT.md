@@ -70,12 +70,13 @@ At the time of writing, `git status` shows a large staged set including (non-exh
 - Python interface + API (`src/bsim/simui/interface.py`)
   - FastAPI router serving:
     - `/api/spec`, `/api/run`, `/api/status`, `/api/events`, `/api/visuals`, `/api/snapshot`, `/api/reset`, `/api/pause`, `/api/resume`
-  - Polling model (no SSE/websockets).
+    - `/api/stream` — SSE endpoint for real-time updates (snapshot, tick, event, heartbeat messages)
+  - SSE transport (primary) with polling endpoints available for fallback.
   - Bundled static frontend served from `src/bsim/simui/static/`.
   - Convenience `Interface.launch()` starts uvicorn.
 - Background runner (`src/bsim/simui/runner.py`)
   - Runs `world.simulate(...)` in a background thread.
-  - Tracks `running/paused/step_count/error` for polling.
+  - Tracks `running/paused/step_count/error` for status queries and SSE broadcasts.
 - Frontend source (maintainers) (`src/bsim/simui/_frontend/`)
   - Vite + React + TypeScript app; build copies `dist/app.js` to `src/bsim/simui/static/app.js`.
   - Build helpers:
