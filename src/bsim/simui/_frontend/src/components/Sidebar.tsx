@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect } from 'react'
 import { useUi, useModuleNames, isNumberControl } from '../app/ui'
+import { formatDuration } from '../lib/time'
 
 type Props = { onRun: () => void; onPause: () => void; onResume: () => void; onReset: () => void }
 
@@ -27,6 +28,18 @@ function Controls({ onRun, onPause, onResume, onReset }: Props) {
   const st = state.status
   const numberControls = (state.spec?.controls || []).filter(isNumberControl)
   const updateControl = useCallback((name: string, value: string) => actions.setControls({ [name]: value }), [actions])
+
+  const toFiniteNumber = (value: unknown): number => {
+    if (value === '' || value === null || value === undefined) return Number.NaN
+    const n = typeof value === 'number' ? value : Number(String(value))
+    return Number.isFinite(n) ? n : Number.NaN
+  }
+  const controlDefault = (name: string): number | undefined => numberControls.find((c) => c.name === name)?.default
+  const steps = toFiniteNumber(state.controls.steps ?? controlDefault('steps'))
+  const dt = toFiniteNumber(state.controls.dt ?? controlDefault('dt'))
+  const duration = steps * dt
+  const simTime = toFiniteNumber(st?.step_count) * dt
+
   return (
     <div className="controls">
       {numberControls.length > 0 && (
@@ -39,6 +52,18 @@ function Controls({ onRun, onPause, onResume, onReset }: Props) {
           ))}
         </div>
       )}
+      <div className="control-derived">
+        <div className="control-derived-row">
+          <span className="control-derived-label">Duration</span>
+          <span className="control-derived-value">{Number.isFinite(duration) ? formatDuration(duration) : '—'}</span>
+        </div>
+        {st?.running && Number.isFinite(simTime) && (
+          <div className="control-derived-row">
+            <span className="control-derived-label">Sim time</span>
+            <span className="control-derived-value">{formatDuration(simTime)}</span>
+          </div>
+        )}
+      </div>
       <div className="control-actions">
         <button className="btn btn-primary" onClick={onRun} disabled={!!st?.running}>Run Simulation</button>
         {st?.running && (

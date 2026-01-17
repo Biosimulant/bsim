@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react'
+import { formatDurationTick, looksLikeDurationAxis } from '../lib/time'
 
 type Series = { name?: string; points: Array<[number, number]> }
 
@@ -21,6 +22,10 @@ export default function Timeseries({ data, isFullscreen }: { data: { series?: Se
   const sy = (y: number) => MT + (1 - (y - yMin) / (yMax - yMin)) * (H - MT - MB)
   const poly = (s: Series) => (s.points || []).map((p) => `${sx(p[0])},${sy(p[1])}`).join(' ')
   const ticks = (lo: number, hi: number, count = 5) => Array.from({ length: count + 1 }, (_, i) => lo + (i * (hi - lo)) / count)
+  const xRange = xMax - xMin
+  const xFormat = (data as any)?.x_format
+  const xIsDuration = xFormat === 'duration' || (xFormat === undefined && looksLikeDurationAxis(series))
+  const formatX = (x: number) => xIsDuration ? formatDurationTick(x, xRange) : x.toFixed(2)
 
   const containerStyle: React.CSSProperties = isFullscreen
     ? { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }
@@ -34,7 +39,7 @@ export default function Timeseries({ data, isFullscreen }: { data: { series?: Se
         {ticks(xMin, xMax, 5).map((tx) => (
           <g key={`tx-${tx}`}>
             <line x1={sx(tx)} y1={H - MB} x2={sx(tx)} y2={H - MB + 4} className="tick" />
-            <text x={sx(tx)} y={H - 6} className="ticklbl" textAnchor="middle">{tx.toFixed(2)}</text>
+            <text x={sx(tx)} y={H - 6} className="ticklbl" textAnchor="middle">{formatX(tx)}</text>
           </g>
         ))}
         {ticks(yMin, yMax, 4).map((ty) => (
