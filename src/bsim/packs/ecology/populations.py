@@ -150,7 +150,7 @@ class OrganismPopulation(BioModule):
         self._pending_deaths: int = 0  # Deaths from predation
         self._food_from_predation: float = 0.0  # Food gained if predator
 
-    def subscriptions(self) -> Set["BioWorldEvent"]:
+    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
         from bsim import BioWorldEvent
         return {BioWorldEvent.STEP}
 

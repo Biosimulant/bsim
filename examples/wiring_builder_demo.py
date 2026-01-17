@@ -21,13 +21,15 @@ class Eye(bsim.BioModule):
 
 class LGN(bsim.BioModule):
     def on_signal(self, topic, payload, source, world):
-        if topic == "visual_stream":
+        # Connected as eye.visual_stream -> lgn.retina
+        if topic == "retina":
             world.publish_biosignal(self, topic="thalamus", payload=payload)
 
 
 class SC(bsim.BioModule):
     def on_signal(self, topic, payload, source, world):
-        if topic == "thalamus":
+        # Connected as lgn.thalamus -> sc.vision
+        if topic == "vision":
             print("[SC] vision:", payload)
 
 

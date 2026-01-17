@@ -13,13 +13,15 @@ def test_wiring_builder_connects_by_names_and_topics(bsim):
 
     class LGN(bsim.BioModule):
         def on_signal(self, topic, payload, source, world):
-            if topic == "visual_stream":
+            # Connected as eye.visual_stream -> lgn.retina
+            if topic == "retina":
                 calls["lgn"] += 1
                 world.publish_biosignal(self, topic="thalamus", payload=payload)
 
     class SC(bsim.BioModule):
         def on_signal(self, topic, payload, source, world):
-            if topic == "thalamus":
+            # Connected as lgn.thalamus -> sc.vision
+            if topic == "vision":
                 calls["sc"] += 1
 
     world = bsim.BioWorld(solver=bsim.FixedStepSolver())

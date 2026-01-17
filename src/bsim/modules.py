@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Set, TYPE_CHECKING, Optional, List, Union
+from typing import Any, Dict, Optional, Set, TYPE_CHECKING, List, Union
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from .world import BioWorld, BioWorldEvent
@@ -12,11 +12,13 @@ class BioModule(ABC):
     """Base interface for modules that listen to world events.
 
     Optionally override `subscriptions` to declare a subset of events to receive.
-    Returning an empty set means the module receives all events.
+    - Return `None` to receive all events (default).
+    - Return an empty set to receive no world events (signals-only module).
+    - Return a non-empty set to receive only those events.
     """
 
-    def subscriptions(self) -> Set["BioWorldEvent"]:
-        return set()
+    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
+        return None
 
     # Handle global world events. Default is a no-op; override as needed.
     def on_event(self, event: "BioWorldEvent", payload: Dict[str, Any], world: "BioWorld") -> None:

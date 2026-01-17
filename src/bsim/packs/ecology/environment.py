@@ -62,7 +62,7 @@ class Environment(BioModule):
         self.food_availability = food_availability
         self.sunlight = sunlight
 
-    def subscriptions(self) -> Set["BioWorldEvent"]:
+    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
         from bsim import BioWorldEvent
         return {BioWorldEvent.STEP}
 

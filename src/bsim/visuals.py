@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 import json
 
 
-class VisualSpec(TypedDict):
+class VisualSpec(TypedDict, total=False):
     """Renderer-agnostic visual specification for browser clients.
 
     Required keys:
@@ -14,6 +14,7 @@ class VisualSpec(TypedDict):
 
     render: str
     data: Dict[str, Any]
+    description: str
 
 
 Visuals = Union[VisualSpec, List[VisualSpec]]
@@ -36,9 +37,15 @@ def validate_visual_spec(spec: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
     data = spec["data"]
     if not isinstance(data, dict):
         return False, "'data' must be a dict"
+    if "description" in spec and not isinstance(spec["description"], str):
+        return False, "'description' must be a string"
     # Check JSON serializability (best-effort)
     try:
-        json.dumps({"render": render, "data": data})
+        # Include optional fields that the UI may rely on.
+        payload: Dict[str, Any] = {"render": render, "data": data}
+        if "description" in spec:
+            payload["description"] = spec["description"]
+        json.dumps(payload)
     except TypeError as exc:
         return False, f"data not JSON-serializable: {exc}"
     return True, None
@@ -58,5 +65,8 @@ def normalize_visuals(visuals: Visuals) -> List[VisualSpec]:
     for v in items:
         ok, _ = validate_visual_spec(v)
         if ok:
-            out.append({"render": v["render"], "data": v["data"]})
+            normed: Dict[str, Any] = {"render": v["render"], "data": v["data"]}
+            if "description" in v and isinstance(v["description"], str):
+                normed["description"] = v["description"]
+            out.append(normed)  # type: ignore[arg-type]
     return out

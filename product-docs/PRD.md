@@ -2,7 +2,6 @@
 
 Status: Draft (living)
 Last updated: 2026-01-12
-Owners: (add)
 
 ## 1) Summary
 
@@ -15,8 +14,8 @@ This PRD describes the end-to-end product, from core simulation primitives throu
 ### Near-term (v0.x)
 - Provide a stable, minimal core API: `BioWorld`, `BioWorldEvent`, `BioModule`, `Solver`, wiring loaders/builders, and a minimal visuals contract.
 - Ensure packaging is correct and optional dependencies are truly optional.
-- Provide a functional “run from config” workflow for YAML/TOML wiring specs (CLI is planned).
-- Provide SimUI that can run local simulations, stream/poll status, show events, and render visuals.
+- Provide a functional “run from config” workflow for YAML/TOML wiring specs, including a minimal CLI.
+- Provide SimUI that can run local simulations, stream status (SSE) with polling fallback, show events, and render visuals.
 - Ship one credible domain reference pack focused on neuroscience (single neuron + small microcircuit) to prove end-to-end usability.
 
 ### Mid-term (v1.0)
@@ -83,7 +82,7 @@ This PRD describes the end-to-end product, from core simulation primitives throu
 - Must validate wiring against declared ports when present.
 - Must support YAML and TOML (with optional deps).
 - Must provide helpful error messages.
-- Should provide a CLI to run wiring specs.
+- Must provide a CLI to run wiring specs.
 
 ### R5: Visuals contract
 - Must define a JSON-serializable, renderer-agnostic `VisualSpec` contract.
@@ -95,7 +94,7 @@ This PRD describes the end-to-end product, from core simulation primitives throu
   - controls (steps/dt + extensible controls)
   - run/pause/resume/reset
   - event log and visuals panel
-  - polling-based transport (no websockets required)
+  - SSE streaming transport with polling fallback (no websockets required)
 - Must be optional (`bsim` base should import without UI deps).
 
 ### R7: Plugin SDK (mid-term)
@@ -124,14 +123,6 @@ This PRD describes the end-to-end product, from core simulation primitives throu
 - Security posture for config-driven imports (safe mode/allowlist options).
 - Reproducibility: pinned build steps for UI assets; deterministic builds.
 
-## 7) Out-of-scope repos / interfaces
+## 7) Milestones (high-level)
 
-`BUSINESS_CASE.md` references a larger mono-project:
-- `bsim-backend/`
-- `biosimulant-landing-page/`
-
-This plan defines interfaces so those repos can integrate later, but the implementation lives elsewhere.
-
-## 8) Milestones (high-level)
-
-See `tasks/ROADMAP.md` for a sequenced plan and milestone gates.
+See `product-docs/ROADMAP.md` for a sequenced plan and milestone gates.

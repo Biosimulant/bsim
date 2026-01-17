@@ -31,7 +31,7 @@ class PoissonInput:
         self._spike_counts: List[int] = []  # spike count per step for visualization
         self._spike_times: List[float] = []  # time points
 
-    def subscriptions(self) -> Set["BioWorldEvent"]:
+    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
         from bsim import BioWorldEvent
         return {BioWorldEvent.STEP}
 
@@ -134,7 +134,7 @@ class StepCurrent:
         self._time: float = 0.0
         self._current_history: List[List[float]] = []  # [[t, I], ...]
 
-    def subscriptions(self) -> Set["BioWorldEvent"]:
+    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
         from bsim import BioWorldEvent
         return {BioWorldEvent.STEP}
 

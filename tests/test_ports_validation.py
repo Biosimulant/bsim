@@ -58,3 +58,35 @@ def test_port_validation_raises_for_unknown_input(bsim):
 
     with pytest.raises(ValueError):
         wb.connect("eye.out.visual_stream", ["lgn.in.unknown"]).apply()
+
+
+def test_port_routing_supports_dst_port_mapping(bsim):
+    received = {"count": 0}
+
+    class Src(bsim.BioModule):
+        def outputs(self):
+            return {"out_port"}
+
+        def subscriptions(self):
+            return {bsim.BioWorldEvent.STEP}
+
+        def on_event(self, event, payload, world):
+            world.publish_biosignal(self, topic="out_port", payload={"t": payload.get("t")})
+
+    class Dst(bsim.BioModule):
+        def inputs(self):
+            return {"in_port"}
+
+        def on_signal(self, topic, payload, source, world):
+            if topic == "in_port":
+                received["count"] += 1
+
+    world = bsim.BioWorld(solver=bsim.FixedStepSolver())
+    wb = bsim.WiringBuilder(world)
+    wb.add("src", Src()).add("dst", Dst())
+
+    # Map src.out_port -> dst.in_port (different names)
+    wb.connect("src.out.out_port", ["dst.in.in_port"]).apply()
+    world.simulate(steps=3, dt=0.1)
+
+    assert received["count"] == 3

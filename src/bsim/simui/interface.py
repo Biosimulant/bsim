@@ -200,7 +200,11 @@ class Interface:
                 {
                     "module": entry.get("module"),
                     "visuals": [
-                        {"render": v["render"], "data": v["data"]}
+                        {
+                            "render": v["render"],
+                            "data": v["data"],
+                            **({"description": v["description"]} if "description" in v else {}),
+                        }
                         for v in entry.get("visuals", [])
                     ],
                 }
@@ -365,7 +369,11 @@ class Interface:
                 out.append({
                     "module": entry.get("module"),
                     "visuals": [
-                        {"render": v["render"], "data": v["data"]}
+                        {
+                            "render": v["render"],
+                            "data": v["data"],
+                            **({"description": v["description"]} if "description" in v else {}),
+                        }
                         for v in entry.get("visuals", [])
                     ],
                 })

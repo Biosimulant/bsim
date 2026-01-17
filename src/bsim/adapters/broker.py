@@ -257,7 +257,7 @@ class TimeBroker:
             # Inject into target adapter
             target_entry = self._adapters.get(conn.target_adapter)
             if target_entry is not None:
-                target_entry.adapter.set_input(conn.target_signal, target_signal)
+                target_entry.adapter.set_inputs({conn.target_signal: target_signal})
 
     def step(self, dt: float) -> float:
         """

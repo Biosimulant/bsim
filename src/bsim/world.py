@@ -45,7 +45,7 @@ class BioWorld:
     solver: Solver
     listeners: List[Listener] = field(default_factory=list)
     _biomodule_listeners: Dict["BioModule", Listener] = field(default_factory=dict, init=False, repr=False)
-    _signal_routes: Dict[Tuple["BioModule", str], List["BioModule"]] = field(
+    _signal_routes: Dict[Tuple["BioModule", str], List[Tuple["BioModule", str]]] = field(
         default_factory=dict, init=False, repr=False
     )
     _loaded_emitted: bool = field(default=False, init=False, repr=False)
@@ -71,15 +71,18 @@ class BioWorld:
         """Attach a BioModule and auto-subscribe it to events.
 
         Modules can declare selective subscriptions via `module.subscriptions()`.
-        If empty, the module receives all events.
+        - None: module receives all events.
+        - Empty set: module receives no world events (signals-only).
+        - Non-empty set: module receives only those events.
         """
         if module in self._biomodule_listeners:
             return
 
-        subs = set(module.subscriptions())  # snapshot
+        subs = module.subscriptions()
+        subs_snapshot = None if subs is None else set(subs)
 
         def _module_listener(event: BioWorldEvent, payload: Dict[str, Any]) -> None:
-            if subs and event not in subs:
+            if subs_snapshot is not None and event not in subs_snapshot:
                 return
             try:
                 module.on_event(event, payload, self)
@@ -98,23 +101,44 @@ class BioWorld:
             self.off(listener)
 
     # --- Directed module-to-module signals (biosignals) ---
-    def connect_biomodules(self, src: "BioModule", topic: str, dst: "BioModule") -> None:
+    def connect_biomodules(
+        self,
+        src: "BioModule",
+        topic: str,
+        dst: "BioModule",
+        *,
+        dst_topic: Optional[str] = None,
+    ) -> None:
         """Connect a source module topic to a destination module.
 
         Messages published by `src` on `topic` will be delivered to `dst.on_signal`.
+        If `dst_topic` is provided, the destination will receive the message under
+        that topic name (allowing port renaming).
         """
+        if dst_topic is None:
+            dst_topic = topic
         key = (src, topic)
         lst = self._signal_routes.setdefault(key, [])
-        if dst not in lst:
-            lst.append(dst)
+        route = (dst, dst_topic)
+        if route not in lst:
+            lst.append(route)
 
-    def disconnect_biomodules(self, src: "BioModule", topic: str, dst: "BioModule") -> None:
+    def disconnect_biomodules(
+        self,
+        src: "BioModule",
+        topic: str,
+        dst: "BioModule",
+        *,
+        dst_topic: Optional[str] = None,
+    ) -> None:
+        if dst_topic is None:
+            dst_topic = topic
         key = (src, topic)
         lst = self._signal_routes.get(key)
         if not lst:
             return
         try:
-            lst.remove(dst)
+            lst.remove((dst, dst_topic))
         except ValueError:
             return
         if not lst:
@@ -123,9 +147,9 @@ class BioWorld:
     def publish_biosignal(self, src: "BioModule", topic: str, payload: Dict[str, Any]) -> None:
         """Publish a module-originated message to connected modules only."""
         key = (src, topic)
-        for dst in list(self._signal_routes.get(key, [])):
+        for dst, dst_topic in list(self._signal_routes.get(key, [])):
             try:
-                dst.on_signal(topic, payload, source=src, world=self)
+                dst.on_signal(dst_topic, payload, source=src, world=self)
             except Exception:
                 # Keep delivery robust; log and continue.
                 logger.exception("BioModule.on_signal raised for topic '%s'", topic)
@@ -249,13 +273,13 @@ class BioWorld:
 
         _load_wiring(self, path)
 
-    def describe_wiring(self) -> List[Tuple[str, str, str]]:
+    def describe_wiring(self) -> List[Tuple[str, str, str, str]]:
         """Return a simple description of current biosignal connections.
 
-        Each tuple is (source_module, topic, dest_module) using class names.
+        Each tuple is (source_module, source_topic, dest_module, dest_topic) using class names.
         """
-        desc: List[Tuple[str, str, str]] = []
+        desc: List[Tuple[str, str, str, str]] = []
         for (src, topic), dsts in self._signal_routes.items():
-            for dst in dsts:
-                desc.append((src.__class__.__name__, topic, dst.__class__.__name__))
+            for dst, dst_topic in dsts:
+                desc.append((src.__class__.__name__, topic, dst.__class__.__name__, dst_topic))
         return desc

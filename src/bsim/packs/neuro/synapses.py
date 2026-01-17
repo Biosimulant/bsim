@@ -77,7 +77,7 @@ class ExpSynapseCurrent(BioModule):
             if targets:
                 self._adjacency[pre] = targets
 
-    def subscriptions(self) -> Set["BioWorldEvent"]:
+    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
         from bsim import BioWorldEvent
         return {BioWorldEvent.STEP}
 

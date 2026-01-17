@@ -126,7 +126,7 @@ class IzhikevichPopulation(BioModule):
         self._time = 0.0
         self._v_history = {}
 
-    def subscriptions(self) -> Set["BioWorldEvent"]:
+    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
         from bsim import BioWorldEvent
         return {BioWorldEvent.STEP}
 

@@ -132,7 +132,7 @@ def test_tellurium_adapter():
     )
 
     # Create and setup adapter
-    adapter = TelluriumAdapter(config)
+    adapter = TelluriumAdapter(config=config)
     adapter.setup({})
     print("✓ Adapter setup complete")
 
@@ -179,57 +179,49 @@ def test_tellurium_adapter():
 
 
 def test_adapter_in_wiring():
-    """Test using the adapter through the wiring system."""
+    """Test using the adapter through the TimeBroker runtime."""
     print("\n" + "=" * 60)
-    print("Testing Adapter in Wiring System")
+    print("Testing Adapter in TimeBroker")
     print("=" * 60)
 
     try:
         import tellurium
     except ImportError:
-        print("✗ Tellurium not installed, skipping wiring test")
+        print("✗ Tellurium not installed, skipping broker test")
         return True
 
     import tempfile
-    from bsim import BioWorld
-    from bsim.wiring import build_from_spec
+    from bsim.adapters import TimeBroker
 
     # Create temp SBML file
     with tempfile.NamedTemporaryFile(mode="w", suffix=".xml", delete=False) as f:
         f.write(SIMPLE_SBML)
         sbml_path = f.name
 
-    # Create world
-    world = BioWorld(dt=1.0)
-
-    # Build from spec with adapter
-    spec = {
-        "modules": {
-            "enzyme_model": {
-                "adapter": "tellurium",
-                "model": sbml_path,
-                "expose": ["S", "P"],
-                "parameters": {"k1": 0.15},
-            }
-        }
-    }
-
     try:
-        builder = build_from_spec(world, spec)
-        print("✓ Adapter module created through wiring")
+        from bsim.adapters import TelluriumAdapter
+        from bsim.adapters.base import AdapterConfig
 
-        # Get the module
-        module = builder.registry["enzyme_model"]
-        print(f"✓ Module type: {type(module).__name__}")
+        config = AdapterConfig(
+            adapter_type="tellurium",
+            model_path=sbml_path,
+            expose=["S", "P"],
+            parameters={"k1": 0.15},
+        )
 
-        # Check declared ports
-        print(f"✓ Declared outputs: {module.outputs()}")
+        adapter = TelluriumAdapter(config=config)
 
-        # Step the world
-        for _ in range(10):
-            world.step()
+        broker = TimeBroker()
+        broker.register("enzyme_model", adapter, time_scale="seconds")
+        broker.setup()
+        print("✓ Adapter registered and setup via TimeBroker")
 
-        print("✓ World stepped successfully")
+        # Run for 10 seconds with 1 second dt
+        for _t in broker.run(duration=10.0, dt=1.0):
+            pass
+
+        outputs = adapter.get_outputs()
+        print(f"✓ Outputs after run: S={outputs['S'].value:.4f}, P={outputs['P'].value:.4f}")
 
     except Exception as e:
         print(f"✗ Error: {e}")
@@ -240,7 +232,7 @@ def test_adapter_in_wiring():
         Path(sbml_path).unlink()
 
     print("=" * 60)
-    print("Wiring test passed!")
+    print("Broker test passed!")
     print("=" * 60)
     return True
 

@@ -50,7 +50,7 @@ class PredatorPreyInteraction(BioModule):
         self._time: float = 0.0
         self._history: List[Dict[str, Any]] = []
 
-    def subscriptions(self) -> Set["BioWorldEvent"]:
+    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
         from bsim import BioWorldEvent
         return {BioWorldEvent.STEP}
 
@@ -207,7 +207,7 @@ class CompetitionInteraction(BioModule):
         self._time: float = 0.0
         self._history: List[Dict[str, Any]] = []
 
-    def subscriptions(self) -> Set["BioWorldEvent"]:
+    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
         from bsim import BioWorldEvent
         return {BioWorldEvent.STEP}
 
@@ -321,7 +321,7 @@ class MutualismInteraction(BioModule):
         self._species_b_name: str = "Species B"
         self._time: float = 0.0
 
-    def subscriptions(self) -> Set["BioWorldEvent"]:
+    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
         from bsim import BioWorldEvent
         return {BioWorldEvent.STEP}
 

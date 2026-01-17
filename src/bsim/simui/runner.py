@@ -20,7 +20,9 @@ class SimulationManager:
     """Runs world.simulate in a background thread and tracks status.
 
     This manager enforces a single active run at a time. Cancellation is not
-    supported in v1; later phases can add a cooperative stop flag.
+    supported as a hard, immediate cancellation in v1. A cooperative stop is
+    supported via `BioWorld.request_stop()`, and will take effect at STEP
+    boundaries (so the run can still emit AFTER_SIMULATION and clean up).
     """
 
     def __init__(self, world: "BioWorld") -> None:

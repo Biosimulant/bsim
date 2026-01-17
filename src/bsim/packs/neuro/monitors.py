@@ -49,7 +49,7 @@ class SpikeMonitor(BioModule):
         self._t_max: float = float("-inf")
         self._neuron_max: int = 0
 
-    def subscriptions(self) -> Set["BioWorldEvent"]:
+    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
         return set()  # Only receives signals, not world events
 
     def inputs(self) -> Set[str]:
@@ -245,7 +245,7 @@ class RateMonitor(BioModule):
         self._rate_series: List[List[float]] = []  # [[t, rate], ...]
         self._last_t: float = 0.0
 
-    def subscriptions(self) -> Set["BioWorldEvent"]:
+    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
         return set()
 
     def inputs(self) -> Set[str]:
@@ -327,7 +327,7 @@ class StateMonitor(BioModule):
         self.max_points = max_points
         self._series: Dict[int, List[List[float]]] = {}  # neuron_idx -> [[t, v], ...]
 
-    def subscriptions(self) -> Set["BioWorldEvent"]:
+    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
         return set()
 
     def inputs(self) -> Set[str]:
@@ -411,7 +411,7 @@ class NeuroMetrics(BioModule):
         self._t_start: Optional[float] = None
         self._t_end: float = 0.0
 
-    def subscriptions(self) -> Set["BioWorldEvent"]:
+    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
         return set()
 
     def inputs(self) -> Set[str]:

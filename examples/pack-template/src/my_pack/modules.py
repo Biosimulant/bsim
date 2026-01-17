@@ -32,7 +32,7 @@ class Counter(BioModule):
         self._count = 0
         self._history: List[List[float]] = []
 
-    def subscriptions(self) -> Set["BioWorldEvent"]:
+    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
         from bsim import BioWorldEvent
         return {BioWorldEvent.STEP}
 
@@ -170,7 +170,7 @@ class SignalLogger(BioModule):
         self.max_entries = max_entries
         self._log: List[Dict[str, Any]] = []
 
-    def subscriptions(self) -> Set["BioWorldEvent"]:
+    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
         return set()  # Don't subscribe to world events
 
     def inputs(self) -> Set[str]:

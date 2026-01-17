@@ -76,3 +76,18 @@ def test_visuals_invalid_shapes_are_filtered(bsim):
     assert len(collected) == 1
     assert collected[0]["module"] == "Good"
     assert collected[0]["visuals"][0]["render"] == "bar"
+
+
+def test_visuals_description_is_preserved(bsim):
+    world = bsim.BioWorld(solver=bsim.FixedStepSolver())
+
+    class WithDescription(bsim.BioModule):
+        def visualize(self):
+            return {"render": "bar", "data": {"items": [{"label": "a", "value": 1}]}, "description": "hello"}
+
+    world.add_biomodule(WithDescription())
+    world.simulate(steps=1, dt=0.1)
+
+    collected = world.collect_visuals()
+    assert collected[0]["module"] == "WithDescription"
+    assert collected[0]["visuals"][0]["description"] == "hello"

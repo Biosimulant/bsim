@@ -27,7 +27,7 @@ class PopulationMonitor(BioModule):
         self.max_points = max_points
         self._data: Dict[str, List[Dict[str, float]]] = {}
 
-    def subscriptions(self) -> Set["BioWorldEvent"]:
+    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
         return set()
 
     def inputs(self) -> Set[str]:
@@ -106,7 +106,7 @@ class EcologyMetrics(BioModule):
         self._t_start: Optional[float] = None
         self._t_end: float = 0.0
 
-    def subscriptions(self) -> Set["BioWorldEvent"]:
+    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
         return set()
 
     def inputs(self) -> Set[str]:
@@ -276,7 +276,7 @@ class PhaseSpaceMonitor(BioModule):
         self._current_y: int = 0
         self._time: float = 0.0
 
-    def subscriptions(self) -> Set["BioWorldEvent"]:
+    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
         from bsim import BioWorldEvent
         return {BioWorldEvent.STEP}
 
