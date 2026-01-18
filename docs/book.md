@@ -30,10 +30,6 @@ This document compiles the bsim repository guides into a single reference.
 
 \newpage
 
-{% include_relative api/solver.md %}
-
-\newpage
-
 {% include_relative api/wiring.md %}
 
 \newpage

@@ -5,12 +5,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING, Union
+from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from bsim import BioWorld, BioWorldEvent
+    from bsim import BioWorld
 
 from bsim import BioModule
+from bsim.signals import BioSignal, SignalMetadata
 
 
 @dataclass
@@ -82,7 +83,9 @@ class IzhikevichPopulation(BioModule):
         u_init: Optional[float] = None,
         I_bias: float = 0.0,
         sample_indices: Optional[List[int]] = None,
+        min_dt: float = 0.001,
     ) -> None:
+        self.min_dt = min_dt
         self.n = n
         self.I_bias = I_bias
 
@@ -115,6 +118,7 @@ class IzhikevichPopulation(BioModule):
 
         # History for visualization (sampled neurons)
         self._v_history: Dict[int, List[List[float]]] = {}  # neuron_idx -> [[t, v], ...]
+        self._outputs: Dict[str, BioSignal] = {}
 
         self._init_state()
 
@@ -126,10 +130,6 @@ class IzhikevichPopulation(BioModule):
         self._time = 0.0
         self._v_history = {}
 
-    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
-        from bsim import BioWorldEvent
-        return {BioWorldEvent.STEP}
-
     def inputs(self) -> Set[str]:
         return {"current"}
 
@@ -140,36 +140,20 @@ class IzhikevichPopulation(BioModule):
         """Reset state for a new simulation run."""
         self._init_state()
 
-    def on_signal(
-        self,
-        topic: str,
-        payload: Dict[str, Any],
-        source: Any,
-        world: "BioWorld",
-    ) -> None:
-        """Handle incoming current signals."""
-        if topic != "current":
+    def set_inputs(self, signals: Dict[str, BioSignal]) -> None:
+        signal = signals.get("current")
+        if signal is None:
             return
-
-        I = payload.get("I", 0.0)
+        I = signal.value
         if isinstance(I, (int, float)):
-            # Scalar current: apply to all neurons
             for i in range(self.n):
                 self._I_ext[i] += float(I)
         elif isinstance(I, (list, tuple)):
-            # Per-neuron current
             for i, val in enumerate(I):
                 if i < self.n:
                     self._I_ext[i] += float(val)
 
-    def on_event(
-        self, event: "BioWorldEvent", payload: Dict[str, Any], world: "BioWorld"
-    ) -> None:
-        from bsim import BioWorldEvent
-        if event != BioWorldEvent.STEP:
-            return
-
-        t = float(payload.get("t", self._time))
+    def advance_to(self, t: float) -> None:
         dt = t - self._time if t > self._time else self._last_dt
         self._last_dt = dt
         self._time = t
@@ -210,9 +194,6 @@ class IzhikevichPopulation(BioModule):
         # Clear external current after integration (it accumulates from signals)
         self._I_ext = [0.0] * self.n
 
-        # Emit spikes
-        world.publish_biosignal(self, topic="spikes", payload={"t": t, "ids": spiked_ids})
-
         # Emit sampled state for visualization
         state_indices = [i for i in self.sample_indices if i < self.n]
         state_v = [self._v[i] for i in state_indices]
@@ -224,16 +205,38 @@ class IzhikevichPopulation(BioModule):
                 self._v_history[idx] = []
             self._v_history[idx].append([t, v])
 
-        world.publish_biosignal(
-            self,
-            topic="state",
-            payload={
-                "t": t,
-                "indices": state_indices,
-                "v": state_v,
-                "u": state_u,
-            },
-        )
+        source_name = getattr(self, "_world_name", self.__class__.__name__)
+        self._outputs = {
+            "spikes": BioSignal(
+                source=source_name,
+                name="spikes",
+                value=spiked_ids,
+                time=t,
+                metadata=SignalMetadata(units=None, description="Spike events", kind="event"),
+            ),
+            "state": BioSignal(
+                source=source_name,
+                name="state",
+                value={
+                    "t": t,
+                    "indices": state_indices,
+                    "v": state_v,
+                    "u": state_u,
+                },
+                time=t,
+                metadata=SignalMetadata(units=None, description="Membrane state", kind="state"),
+            ),
+        }
+
+    def get_outputs(self) -> Dict[str, BioSignal]:
+        return dict(self._outputs)
+
+    def get_state(self) -> Dict[str, Any]:
+        return {
+            "time": self._time,
+            "v": list(self._v),
+            "u": list(self._u),
+        }
 
     def visualize(self) -> Optional[Dict[str, Any]]:
         """Return a timeseries visualization of membrane potentials."""

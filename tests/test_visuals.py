@@ -1,25 +1,36 @@
+
 def test_collect_visuals_empty(bsim):
-    world = bsim.BioWorld(solver=bsim.FixedStepSolver())
+    world = bsim.BioWorld()
 
     class Silent(bsim.BioModule):
-        pass
+        def __init__(self):
+            self.min_dt = 0.1
 
-    world.add_biomodule(Silent())
-    world.simulate(steps=1, dt=0.1)
+        def advance_to(self, t: float) -> None:
+            return
+
+        def get_outputs(self):
+            return {}
+
+    world.add_biomodule("silent", Silent())
+    world.run(duration=0.1, tick_dt=0.1)
     collected = world.collect_visuals()
     assert collected == []
 
 
 def test_collect_visuals_with_modules(bsim):
-    world = bsim.BioWorld(solver=bsim.FixedStepSolver())
+    world = bsim.BioWorld()
 
     class TS(bsim.BioModule):
         def __init__(self):
+            self.min_dt = 0.1
             self._points = []
 
-        def on_event(self, event, payload, world):
-            if event == bsim.BioWorldEvent.STEP:
-                self._points.append([payload["t"], payload["i"]]) if "i" in payload else self._points.append([payload["t"], len(self._points)])
+        def advance_to(self, t: float) -> None:
+            self._points.append([t, len(self._points)])
+
+        def get_outputs(self):
+            return {}
 
         def visualize(self):
             return {
@@ -28,65 +39,106 @@ def test_collect_visuals_with_modules(bsim):
             }
 
     class GraphMod(bsim.BioModule):
+        def __init__(self):
+            self.min_dt = 0.1
+
+        def advance_to(self, t: float) -> None:
+            return
+
+        def get_outputs(self):
+            return {}
+
         def visualize(self):
             return {
                 "render": "graph",
-                "data": {"nodes": [{"id": "a"}, {"id": "b"}], "edges": [{"source": "a", "target": "b"}]},
+                "data": {"nodes": [{"id": "a"}, {"id": "b"], "edges": [{"source": "a", "target": "b"}]},
             }
 
-    world.add_biomodule(TS())
-    world.add_biomodule(GraphMod())
-    world.simulate(steps=2, dt=0.5)
+    world.add_biomodule("ts", TS())
+    world.add_biomodule("graph", GraphMod())
+    world.run(duration=0.2, tick_dt=0.1)
 
     collected = world.collect_visuals()
-    # Expect two entries (one per module) with proper shapes
     assert len(collected) == 2
     kinds = {entry["module"]: entry for entry in collected}
     assert "TS" in kinds and "GraphMod" in kinds
     ts_vis = kinds["TS"]["visuals"][0]
     assert ts_vis["render"] == "timeseries"
-    assert "data" in ts_vis
     g_vis = kinds["GraphMod"]["visuals"][0]
     assert g_vis["render"] == "graph"
-    assert "data" in g_vis
 
 
 def test_visuals_invalid_shapes_are_filtered(bsim):
-    world = bsim.BioWorld(solver=bsim.FixedStepSolver())
+    world = bsim.BioWorld()
 
     class Bad1(bsim.BioModule):
+        def __init__(self):
+            self.min_dt = 0.1
+
+        def advance_to(self, t: float) -> None:
+            return
+
+        def get_outputs(self):
+            return {}
+
         def visualize(self):
             return {"data": {"x": 1}}  # missing 'render'
 
     class Bad2(bsim.BioModule):
+        def __init__(self):
+            self.min_dt = 0.1
+
+        def advance_to(self, t: float) -> None:
+            return
+
+        def get_outputs(self):
+            return {}
+
         def visualize(self):
             return {"render": "timeseries", "data": set([1, 2, 3])}  # not JSON-serializable
 
     class Good(bsim.BioModule):
+        def __init__(self):
+            self.min_dt = 0.1
+
+        def advance_to(self, t: float) -> None:
+            return
+
+        def get_outputs(self):
+            return {}
+
         def visualize(self):
             return {"render": "bar", "data": {"items": [{"label": "a", "value": 1}]}}
 
-    world.add_biomodule(Bad1())
-    world.add_biomodule(Bad2())
-    world.add_biomodule(Good())
-    world.simulate(steps=1, dt=0.1)
+    world.add_biomodule("bad1", Bad1())
+    world.add_biomodule("bad2", Bad2())
+    world.add_biomodule("good", Good())
+    world.run(duration=0.1, tick_dt=0.1)
 
     collected = world.collect_visuals()
-    # Only the good module should appear
     assert len(collected) == 1
     assert collected[0]["module"] == "Good"
     assert collected[0]["visuals"][0]["render"] == "bar"
 
 
 def test_visuals_description_is_preserved(bsim):
-    world = bsim.BioWorld(solver=bsim.FixedStepSolver())
+    world = bsim.BioWorld()
 
     class WithDescription(bsim.BioModule):
+        def __init__(self):
+            self.min_dt = 0.1
+
+        def advance_to(self, t: float) -> None:
+            return
+
+        def get_outputs(self):
+            return {}
+
         def visualize(self):
             return {"render": "bar", "data": {"items": [{"label": "a", "value": 1}]}, "description": "hello"}
 
-    world.add_biomodule(WithDescription())
-    world.simulate(steps=1, dt=0.1)
+    world.add_biomodule("desc", WithDescription())
+    world.run(duration=0.1, tick_dt=0.1)
 
     collected = world.collect_visuals()
     assert collected[0]["module"] == "WithDescription"

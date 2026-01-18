@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 - Source code: `src/bsim/`
-  - Core: `BioWorld`, `BioWorldEvent`, `Solver`, `FixedStepSolver`, `BioModule`
+  - Core: `BioWorld`, `WorldEvent`, `BioModule`, `BioSignal`
 - Examples: `examples/` (e.g., `world_simulation.py`, `basic_usage.py`)
 - Tests: `tests/` (pytest; files named `test_*.py`)
 - Packaging: `pyproject.toml` (build via Hatchling)
@@ -40,9 +40,9 @@ Tip: Import the library as `import bsim`.
 - CI readiness: ensure `pytest` passes locally and pre-commit hooks are clean.
 
 ## Architecture Overview (Brief)
-- Dependency injection: `BioWorld(solver=...)` with `Solver.simulate(steps, dt, emit)`.
-- Events: `BioWorldEvent` published by world/solver; subscribe via `world.on(...)`.
-- Modules: implement `BioModule` and add with `world.add_biomodule(...)`; use `subscriptions()` to filter events.
+- Orchestration: `BioWorld` schedules modules via `min_dt`/`next_due_time` and routes signals.
+- Events: `WorldEvent` published by `BioWorld`; subscribe via `world.on(...)`.
+- Modules: implement the runnable `BioModule` contract and add with `world.add_biomodule(...)`.
 
 ### SimUI (Dev Notes)
 - Python-first UI under `bsim.simui`: declare controls/outputs, inject into a `BioWorld`, and `launch()` or `mount()`.

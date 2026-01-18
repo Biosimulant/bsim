@@ -8,8 +8,9 @@ import random
 from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from bsim import BioWorld, BioWorldEvent
+    from bsim import BioWorld
 
+from bsim.signals import BioSignal, SignalMetadata
 
 class PoissonInput:
     """Generate spikes according to a Poisson process.
@@ -22,7 +23,8 @@ class PoissonInput:
         seed: Optional random seed for reproducibility.
     """
 
-    def __init__(self, n: int = 100, rate_hz: float = 10.0, seed: Optional[int] = None) -> None:
+    def __init__(self, n: int = 100, rate_hz: float = 10.0, seed: Optional[int] = None, min_dt: float = 0.001) -> None:
+        self.min_dt = min_dt
         self.n = n
         self.rate_hz = rate_hz
         self.seed = seed
@@ -30,10 +32,7 @@ class PoissonInput:
         self._time: float = 0.0
         self._spike_counts: List[int] = []  # spike count per step for visualization
         self._spike_times: List[float] = []  # time points
-
-    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
-        from bsim import BioWorldEvent
-        return {BioWorldEvent.STEP}
+        self._outputs: Dict[str, BioSignal] = {}
 
     def inputs(self) -> Set[str]:
         return set()
@@ -48,17 +47,8 @@ class PoissonInput:
         self._spike_counts = []
         self._spike_times = []
 
-    def on_event(
-        self, event: "BioWorldEvent", payload: Dict[str, Any], world: "BioWorld"
-    ) -> None:
-        from bsim import BioWorldEvent
-        if event != BioWorldEvent.STEP:
-            return
-
-        # Get time and dt from payload
-        t = float(payload.get("t", self._time))
-        # dt is inferred from time difference (or assume small step)
-        dt = t - self._time if t > self._time else 0.001
+    def advance_to(self, t: float) -> None:
+        dt = t - self._time if t > self._time else self.min_dt
         self._time = t
 
         # For each neuron, probability of spike in interval dt
@@ -73,17 +63,19 @@ class PoissonInput:
         self._spike_times.append(t)
         self._spike_counts.append(len(spiked_ids))
 
-        # Always emit even if no spikes (empty list)
-        world.publish_biosignal(self, topic="spikes", payload={"t": t, "ids": spiked_ids})
+        source_name = getattr(self, "_world_name", self.__class__.__name__)
+        self._outputs = {
+            "spikes": BioSignal(
+                source=source_name,
+                name="spikes",
+                value=spiked_ids,
+                time=t,
+                metadata=SignalMetadata(units="Hz", description="Poisson spike events", kind="event"),
+            )
+        }
 
-    def on_signal(
-        self,
-        topic: str,
-        payload: Dict[str, Any],
-        source: Any,
-        world: "BioWorld",
-    ) -> None:
-        pass  # PoissonInput does not receive signals
+    def get_outputs(self) -> Dict[str, BioSignal]:
+        return dict(self._outputs)
 
     def visualize(self) -> Optional[Dict[str, Any]]:
         """Return a timeseries visualization of spike counts over time."""
@@ -128,15 +120,14 @@ class StepCurrent:
         self,
         I: float = 10.0,
         schedule: Optional[List[tuple]] = None,
+        min_dt: float = 0.001,
     ) -> None:
+        self.min_dt = min_dt
         self.I_default = I
         self.schedule = schedule or []
         self._time: float = 0.0
         self._current_history: List[List[float]] = []  # [[t, I], ...]
-
-    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
-        from bsim import BioWorldEvent
-        return {BioWorldEvent.STEP}
+        self._outputs: Dict[str, BioSignal] = {}
 
     def inputs(self) -> Set[str]:
         return set()
@@ -155,28 +146,24 @@ class StepCurrent:
                 return float(I_val)
         return self.I_default
 
-    def on_event(
-        self, event: "BioWorldEvent", payload: Dict[str, Any], world: "BioWorld"
-    ) -> None:
-        from bsim import BioWorldEvent
-        if event != BioWorldEvent.STEP:
-            return
-
-        t = float(payload.get("t", self._time))
+    def advance_to(self, t: float) -> None:
         self._time = t
 
         I = self._get_current(t)
         self._current_history.append([t, I])
-        world.publish_biosignal(self, topic="current", payload={"t": t, "I": I})
+        source_name = getattr(self, "_world_name", self.__class__.__name__)
+        self._outputs = {
+            "current": BioSignal(
+                source=source_name,
+                name="current",
+                value=float(I),
+                time=t,
+                metadata=SignalMetadata(units="nA", description="Injected current", kind="state"),
+            )
+        }
 
-    def on_signal(
-        self,
-        topic: str,
-        payload: Dict[str, Any],
-        source: Any,
-        world: "BioWorld",
-    ) -> None:
-        pass
+    def get_outputs(self) -> Dict[str, BioSignal]:
+        return dict(self._outputs)
 
     def visualize(self) -> Optional[Dict[str, Any]]:
         """Return a timeseries visualization of injected current over time."""

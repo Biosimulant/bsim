@@ -2,30 +2,29 @@
 
 bsim is a modular biological simulation library. It centers around three ideas:
 
-- BioWorld: the runtime container that orchestrates simulation steps, publishes lifecycle events, and routes directed module-to-module messages (biosignals).
-- BioModule: a unit of behavior with local state that can listen to global world events (e.g., STEP) and exchange directed biosignals with specific peers.
-- Solver: an execution strategy injected into the world that drives time-stepping and emits events (e.g., STEP) to listeners.
+- BioWorld: the runtime container that orchestrates multi-rate biomodules, routes signals, and publishes lifecycle events.
+- BioModule: a unit of behavior with local state that implements a runnable contract (`setup/reset/advance_to/...`).
+- BioSignal: typed data exchanged between modules over named ports.
 
 Event flow (typical)
-- LOADED (once) → BEFORE_SIMULATION → STEP × N → AFTER_SIMULATION
-- Errors in listeners/signal handlers are logged and do not stop the world.
+- STARTED -> TICK x N -> FINISHED
+- PAUSED, RESUMED, STOPPED, and ERROR may be emitted depending on runtime control flow.
 
 Directed biosignals
-- Modules publish via `world.publish_biosignal(self, topic, payload)`.
-- Connections are explicit: `world.connect_biomodules(src, topic, dst)`.
-- Only connected modules receive a given topic from a specific source.
+- Modules emit outputs via `get_outputs()` (returning `BioSignal` objects).
+- Modules receive inputs via `set_inputs(...)` when connected.
+- Connections are explicit: `world.connect("src.port", "dst.port")`.
 
 Wiring and configuration
 - Use `WiringBuilder` in code or load a YAML/TOML file to declare modules and connections.
 - Optional port metadata on modules (`inputs()`, `outputs()`) enables connection validation.
 
-Adapters (standard-agnostic)
-- `bsim` is designed to host adapters that wrap existing simulators/standards and expose them as modules.
-- The core stays focused on orchestration, wiring contracts, and visualization (SimUI) rather than re-implementing every domain runtime.
+Standard-agnostic by design
+- Biomodules are self-contained Python packages and may wrap external simulators internally.
+- The core focuses on orchestration, wiring contracts, and visualization (SimUI).
 
 Near-term focus (beachhead)
 - Neuroscience demos: single neuron + small E/I microcircuits with strong visuals (raster, firing rate, Vm traces) and reproducible configs.
 
-Minimal data examples (after wiring Eye → LGN on topic "visual_stream")
-- `world.describe_wiring()` → `[('Eye', 'visual_stream', 'LGN')]`
-- After `world.simulate(steps=2, dt=0.1)` with `FixedStepSolver`, result → `{ 'steps': 2, 'time': 0.2 }`
+Minimal data example (after wiring Eye -> LGN on port "visual_stream")
+- Run: `world.run(duration=0.2, tick_dt=0.1)` to advance the orchestrator and dispatch signals.

@@ -9,10 +9,11 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from bsim import BioWorld, BioWorldEvent
+    from bsim import BioWorld
     from bsim.visuals import VisualSpec
 
 from bsim import BioModule
+from bsim.signals import BioSignal, SignalMetadata
 
 
 @dataclass
@@ -119,7 +120,9 @@ class OrganismPopulation(BioModule):
         carrying_capacity: int = 0,
         preset: Optional[str] = None,
         seed: Optional[int] = None,
+        min_dt: float = 1.0,
     ) -> None:
+        self.min_dt = min_dt
         self.name = name
         self.initial_count = initial_count
         self.count = initial_count
@@ -149,10 +152,7 @@ class OrganismPopulation(BioModule):
         self._current_conditions: Dict[str, float] = {}
         self._pending_deaths: int = 0  # Deaths from predation
         self._food_from_predation: float = 0.0  # Food gained if predator
-
-    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
-        from bsim import BioWorldEvent
-        return {BioWorldEvent.STEP}
+        self._outputs: Dict[str, BioSignal] = {}
 
     def inputs(self) -> Set[str]:
         return {"conditions", "predation", "competition", "food_gained"}
@@ -170,39 +170,27 @@ class OrganismPopulation(BioModule):
         self._pending_deaths = 0
         self._food_from_predation = 0.0
 
-    def on_signal(
-        self,
-        topic: str,
-        payload: Dict[str, Any],
-        source: Any,
-        world: "BioWorld",
-    ) -> None:
-        if topic == "conditions":
-            self._current_conditions = payload
-        elif topic == "predation":
-            # Another species is preying on us
-            kills = int(payload.get("kills", 0))
+    def set_inputs(self, signals: Dict[str, BioSignal]) -> None:
+        signal = signals.get("conditions")
+        if signal is not None and isinstance(signal.value, dict):
+            self._current_conditions = signal.value
+        predation = signals.get("predation")
+        if predation is not None and isinstance(predation.value, dict):
+            kills = int(predation.value.get("kills", 0))
             self._pending_deaths += kills
-        elif topic == "competition":
-            # Competition reduces effective food
-            pass  # Handled in on_event
-        elif topic == "food_gained":
-            # Food from successful predation
-            self._food_from_predation += float(payload.get("food", 0.0))
+        food = signals.get("food_gained")
+        if food is not None:
+            try:
+                self._food_from_predation += float(food.value)
+            except Exception:
+                pass
 
-    def on_event(
-        self, event: "BioWorldEvent", payload: Dict[str, Any], world: "BioWorld"
-    ) -> None:
-        from bsim import BioWorldEvent
-        if event != BioWorldEvent.STEP:
-            return
-
-        t = float(payload.get("t", self._time))
-        dt = t - self._time if t > self._time else 0.1
+    def advance_to(self, t: float) -> None:
+        dt = t - self._time if t > self._time else self.min_dt
         self._time = t
 
         if self.count <= 0:
-            self._publish_state(t, world)
+            self._publish_state(t)
             return
 
         # Get environmental conditions
@@ -278,7 +266,7 @@ class OrganismPopulation(BioModule):
         })
 
         # Publish state
-        self._publish_state(t, world)
+        self._publish_state(t)
 
     def _calculate_temp_stress(self, temp: float) -> float:
         """Calculate temperature stress (0 = ideal, 1 = lethal)."""
@@ -310,13 +298,32 @@ class OrganismPopulation(BioModule):
             p *= self._rng.random()
         return k - 1
 
-    def _publish_state(self, t: float, world: "BioWorld") -> None:
+    def _publish_state(self, t: float) -> None:
         """Publish current population state."""
-        world.publish_biosignal(self, topic="population_state", payload={
+        payload = {
             "species": self.name,
             "count": self.count,
             "t": t,
-        })
+        }
+        source_name = getattr(self, "_world_name", self.__class__.__name__)
+        self._outputs = {
+            "population_state": BioSignal(
+                source=source_name,
+                name="population_state",
+                value=payload,
+                time=t,
+                metadata=SignalMetadata(units=None, description="Population state", kind="state"),
+            )
+        }
+
+    def get_outputs(self) -> Dict[str, BioSignal]:
+        return dict(self._outputs)
+
+    def get_state(self) -> Dict[str, Any]:
+        return {
+            "time": self._time,
+            "count": self.count,
+        }
 
     def visualize(self) -> Optional["VisualSpec"]:
         """Generate population count timeseries visualization."""
@@ -368,13 +375,9 @@ class Predator(OrganismPopulation):
         super().__init__(name=name, initial_count=initial_count, preset=preset, **kwargs)
         self.base_food = base_food
 
-    def on_event(
-        self, event: "BioWorldEvent", payload: Dict[str, Any], world: "BioWorld"
-    ) -> None:
-        # Modify conditions to reduce base food for predators
-        # They rely on predation for food
+    def advance_to(self, t: float) -> None:
+        # Modify conditions to reduce base food for predators.
         if self._current_conditions:
             self._current_conditions = dict(self._current_conditions)
             self._current_conditions["food"] = self.base_food
-
-        super().on_event(event, payload, world)
+        super().advance_to(t)

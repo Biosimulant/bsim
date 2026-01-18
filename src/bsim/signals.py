@@ -1,10 +1,8 @@
 """
-BioSignal - Neutral interchange format for cross-adapter communication.
+BioSignal - Neutral interchange format for cross-module communication.
 
-BioSignals are the standard way for adapters to exchange data. They carry:
-- The value (scalar, array, or structured data)
-- Metadata about units, shape, and semantics
-- Source and timing information for debugging
+BioSignals carry values, timing, and metadata so modules can exchange data
+with consistent semantics.
 """
 
 from __future__ import annotations
@@ -36,6 +34,9 @@ class SignalMetadata:
     dtype: Optional[str] = None
     """Data type hint (e.g., 'float64', 'int32', 'bool')."""
 
+    kind: Optional[str] = "state"
+    """Signal kind: 'state' (default) or 'event'."""
+
     def __post_init__(self):
         # Convert shape to tuple if it's a list
         if isinstance(self.shape, list):
@@ -45,30 +46,14 @@ class SignalMetadata:
 @dataclass
 class BioSignal:
     """
-    A signal passed between adapters/modules in a bsim simulation.
+    A signal passed between modules in a bsim simulation.
 
-    BioSignals are the standard interchange format for cross-adapter communication.
+    BioSignals are the standard interchange format for cross-module communication.
     They carry values along with metadata about their source, timing, and semantics.
-
-    Attributes:
-        source: Identifier of the adapter/module that produced this signal.
-        name: Name of the signal (e.g., 'glucose', 'spike_times', 'prediction').
-        value: The actual data - can be scalar, numpy array, or structured data.
-        time: Simulation time when this signal was produced.
-        metadata: Optional metadata about units, shape, and semantics.
-
-    Example:
-        >>> signal = BioSignal(
-        ...     source="metabolism_model",
-        ...     name="glucose",
-        ...     value=5.2,
-        ...     time=10.0,
-        ...     metadata=SignalMetadata(units="mM", min_value=0, max_value=20)
-        ... )
     """
 
     source: str
-    """Identifier of the producing adapter/module."""
+    """Identifier of the producing module."""
 
     name: str
     """Name of this signal."""
@@ -124,6 +109,10 @@ class BioSignal:
                 "units": self.metadata.units,
                 "shape": self.metadata.shape,
                 "description": self.metadata.description,
+                "min_value": self.metadata.min_value,
+                "max_value": self.metadata.max_value,
+                "dtype": self.metadata.dtype,
+                "kind": self.metadata.kind,
             },
         }
 

@@ -79,14 +79,21 @@ function SimulationView() {
   }, [])
 
   const run = useCallback(async () => {
-    const payload: any = { steps: Number(state.controls['steps']), dt: Number(state.controls['dt']) }
-    if (state.controls['temperature'] !== undefined) payload.temperature = Number(state.controls['temperature'])
+    const payload: Record<string, number> = {}
+    for (const c of state.spec?.controls || []) {
+      if (!isNumberControl(c)) continue
+      const raw = state.controls[c.name] ?? c.default
+      const value = typeof raw === 'number' ? raw : Number(String(raw))
+      if (Number.isFinite(value)) payload[c.name] = value
+    }
+    const duration = Number(payload.duration)
+    const tickDt = payload.tick_dt
     // Clear existing visuals before starting a new run
     actions.setVisuals([])
     // Clear existing events so the new run log starts fresh
     actions.setEvents([])
-    await api.run(payload.steps, payload.dt, payload)
-  }, [api, state.controls, actions])
+    await api.run(duration, tickDt, payload)
+  }, [api, state.controls, state.spec, actions])
   const pause = useCallback(async () => { await api.pause() }, [api])
   const resume = useCallback(async () => { await api.resume() }, [api])
   const reset = useCallback(async () => { await api.reset(); actions.setEvents([]) }, [api, actions])

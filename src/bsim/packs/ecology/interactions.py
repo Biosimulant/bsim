@@ -8,10 +8,11 @@ import random
 from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from bsim import BioWorld, BioWorldEvent
+    from bsim import BioWorld
     from bsim.visuals import VisualSpec
 
 from bsim import BioModule
+from bsim.signals import BioSignal, SignalMetadata
 
 
 class PredatorPreyInteraction(BioModule):
@@ -35,7 +36,9 @@ class PredatorPreyInteraction(BioModule):
         satiation_factor: float = 0.0,
         min_prey_for_hunt: int = 0,
         seed: Optional[int] = None,
+        min_dt: float = 1.0,
     ) -> None:
+        self.min_dt = min_dt
         self.predation_rate = predation_rate
         self.conversion_efficiency = conversion_efficiency
         self.satiation_factor = satiation_factor
@@ -49,10 +52,7 @@ class PredatorPreyInteraction(BioModule):
         self._predator_species: str = "Predator"
         self._time: float = 0.0
         self._history: List[Dict[str, Any]] = []
-
-    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
-        from bsim import BioWorldEvent
-        return {BioWorldEvent.STEP}
+        self._outputs: Dict[str, BioSignal] = {}
 
     def inputs(self) -> Set[str]:
         return {"prey_state", "predator_state"}
@@ -68,29 +68,18 @@ class PredatorPreyInteraction(BioModule):
         self._time = 0.0
         self._history = []
 
-    def on_signal(
-        self,
-        topic: str,
-        payload: Dict[str, Any],
-        source: Any,
-        world: "BioWorld",
-    ) -> None:
-        if topic == "prey_state":
-            self._prey_count = int(payload.get("count", 0))
-            self._prey_species = str(payload.get("species", "Prey"))
-        elif topic == "predator_state":
-            self._predator_count = int(payload.get("count", 0))
-            self._predator_species = str(payload.get("species", "Predator"))
+    def set_inputs(self, signals: Dict[str, BioSignal]) -> None:
+        prey = signals.get("prey_state")
+        if prey is not None and isinstance(prey.value, dict):
+            self._prey_count = int(prey.value.get("count", 0))
+            self._prey_species = str(prey.value.get("species", "Prey"))
+        predator = signals.get("predator_state")
+        if predator is not None and isinstance(predator.value, dict):
+            self._predator_count = int(predator.value.get("count", 0))
+            self._predator_species = str(predator.value.get("species", "Predator"))
 
-    def on_event(
-        self, event: "BioWorldEvent", payload: Dict[str, Any], world: "BioWorld"
-    ) -> None:
-        from bsim import BioWorldEvent
-        if event != BioWorldEvent.STEP:
-            return
-
-        t = float(payload.get("t", self._time))
-        dt = t - self._time if t > self._time else 0.1
+    def advance_to(self, t: float) -> None:
+        dt = t - self._time if t > self._time else self.min_dt
         self._time = t
 
         kills = 0
@@ -146,20 +135,32 @@ class PredatorPreyInteraction(BioModule):
             "predator_count": self._predator_count,
         })
 
-        # Emit signals
+        source_name = getattr(self, "_world_name", self.__class__.__name__)
+        outputs: Dict[str, BioSignal] = {}
         if kills > 0:
-            world.publish_biosignal(self, topic="predation", payload={
-                "kills": kills,
-                "predator": self._predator_species,
-                "t": t,
-            })
-
+            outputs["predation"] = BioSignal(
+                source=source_name,
+                name="predation",
+                value={
+                    "kills": kills,
+                    "predator": self._predator_species,
+                    "t": t,
+                },
+                time=t,
+                metadata=SignalMetadata(units=None, description="Predation events", kind="event"),
+            )
         if food_gained > 0:
-            world.publish_biosignal(self, topic="food_gained", payload={
-                "food": food_gained,
-                "source": self._prey_species,
-                "t": t,
-            })
+            outputs["food_gained"] = BioSignal(
+                source=source_name,
+                name="food_gained",
+                value=food_gained,
+                time=t,
+                metadata=SignalMetadata(units=None, description="Food gained", kind="event"),
+            )
+        self._outputs = outputs
+
+    def get_outputs(self) -> Dict[str, BioSignal]:
+        return dict(self._outputs)
 
     def visualize(self) -> Optional["VisualSpec"]:
         """Generate visualization of predation events over time."""
@@ -199,17 +200,16 @@ class CompetitionInteraction(BioModule):
         self,
         competition_coefficient: float = 0.5,
         resource_type: str = "food",
+        min_dt: float = 1.0,
     ) -> None:
+        self.min_dt = min_dt
         self.competition_coefficient = competition_coefficient
         self.resource_type = resource_type
 
         self._populations: Dict[str, int] = {}  # species -> count
         self._time: float = 0.0
         self._history: List[Dict[str, Any]] = []
-
-    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
-        from bsim import BioWorldEvent
-        return {BioWorldEvent.STEP}
+        self._outputs: Dict[str, BioSignal] = {}
 
     def inputs(self) -> Set[str]:
         return {"population_state"}
@@ -223,26 +223,15 @@ class CompetitionInteraction(BioModule):
         self._time = 0.0
         self._history = []
 
-    def on_signal(
-        self,
-        topic: str,
-        payload: Dict[str, Any],
-        source: Any,
-        world: "BioWorld",
-    ) -> None:
-        if topic == "population_state":
-            species = str(payload.get("species", "Unknown"))
-            count = int(payload.get("count", 0))
-            self._populations[species] = count
-
-    def on_event(
-        self, event: "BioWorldEvent", payload: Dict[str, Any], world: "BioWorld"
-    ) -> None:
-        from bsim import BioWorldEvent
-        if event != BioWorldEvent.STEP:
+    def set_inputs(self, signals: Dict[str, BioSignal]) -> None:
+        signal = signals.get("population_state")
+        if signal is None or not isinstance(signal.value, dict):
             return
+        species = str(signal.value.get("species", "Unknown"))
+        count = int(signal.value.get("count", 0))
+        self._populations[species] = count
 
-        t = float(payload.get("t", self._time))
+    def advance_to(self, t: float) -> None:
         self._time = t
 
         if len(self._populations) < 2:
@@ -251,6 +240,7 @@ class CompetitionInteraction(BioModule):
         total_pop = sum(self._populations.values())
 
         # Calculate competition pressure for each species
+        entries: List[Dict[str, Any]] = []
         for species, count in self._populations.items():
             if count <= 0:
                 continue
@@ -263,12 +253,14 @@ class CompetitionInteraction(BioModule):
                 competitors * self.competition_coefficient / max(1, total_pop)
             )
 
-            world.publish_biosignal(self, topic="competition", payload={
-                "species": species,
-                "pressure": competition_pressure,
-                "resource": self.resource_type,
-                "t": t,
-            })
+            entries.append(
+                {
+                    "species": species,
+                    "pressure": competition_pressure,
+                    "resource": self.resource_type,
+                    "t": t,
+                }
+            )
 
         # Record history
         self._history.append({
@@ -276,6 +268,20 @@ class CompetitionInteraction(BioModule):
             "total_population": total_pop,
             "populations": dict(self._populations),
         })
+
+        source_name = getattr(self, "_world_name", self.__class__.__name__)
+        self._outputs = {
+            "competition": BioSignal(
+                source=source_name,
+                name="competition",
+                value=entries,
+                time=t,
+                metadata=SignalMetadata(units=None, description="Competition pressures", kind="state"),
+            )
+        }
+
+    def get_outputs(self) -> Dict[str, BioSignal]:
+        return dict(self._outputs)
 
     def visualize(self) -> Optional["VisualSpec"]:
         """Visualize total competing population over time."""
@@ -311,7 +317,9 @@ class MutualismInteraction(BioModule):
         self,
         benefit_rate: float = 0.1,
         benefit_type: str = "food",
+        min_dt: float = 1.0,
     ) -> None:
+        self.min_dt = min_dt
         self.benefit_rate = benefit_rate
         self.benefit_type = benefit_type
 
@@ -320,10 +328,7 @@ class MutualismInteraction(BioModule):
         self._species_b_count: int = 0
         self._species_b_name: str = "Species B"
         self._time: float = 0.0
-
-    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
-        from bsim import BioWorldEvent
-        return {BioWorldEvent.STEP}
+        self._outputs: Dict[str, BioSignal] = {}
 
     def inputs(self) -> Set[str]:
         return {"species_a_state", "species_b_state"}
@@ -336,28 +341,17 @@ class MutualismInteraction(BioModule):
         self._species_b_count = 0
         self._time = 0.0
 
-    def on_signal(
-        self,
-        topic: str,
-        payload: Dict[str, Any],
-        source: Any,
-        world: "BioWorld",
-    ) -> None:
-        if topic == "species_a_state":
-            self._species_a_count = int(payload.get("count", 0))
-            self._species_a_name = str(payload.get("species", "Species A"))
-        elif topic == "species_b_state":
-            self._species_b_count = int(payload.get("count", 0))
-            self._species_b_name = str(payload.get("species", "Species B"))
+    def set_inputs(self, signals: Dict[str, BioSignal]) -> None:
+        a_state = signals.get("species_a_state")
+        if a_state is not None and isinstance(a_state.value, dict):
+            self._species_a_count = int(a_state.value.get("count", 0))
+            self._species_a_name = str(a_state.value.get("species", "Species A"))
+        b_state = signals.get("species_b_state")
+        if b_state is not None and isinstance(b_state.value, dict):
+            self._species_b_count = int(b_state.value.get("count", 0))
+            self._species_b_name = str(b_state.value.get("species", "Species B"))
 
-    def on_event(
-        self, event: "BioWorldEvent", payload: Dict[str, Any], world: "BioWorld"
-    ) -> None:
-        from bsim import BioWorldEvent
-        if event != BioWorldEvent.STEP:
-            return
-
-        t = float(payload.get("t", self._time))
+    def advance_to(self, t: float) -> None:
         self._time = t
 
         if self._species_a_count > 0 and self._species_b_count > 0:
@@ -366,20 +360,33 @@ class MutualismInteraction(BioModule):
 
             benefit_to_a = self.benefit_rate * math.log1p(self._species_b_count) / 10
             benefit_to_b = self.benefit_rate * math.log1p(self._species_a_count) / 10
+            entries = [
+                {
+                    "species": self._species_a_name,
+                    "benefit": benefit_to_a,
+                    "type": self.benefit_type,
+                    "t": t,
+                },
+                {
+                    "species": self._species_b_name,
+                    "benefit": benefit_to_b,
+                    "type": self.benefit_type,
+                    "t": t,
+                },
+            ]
+            source_name = getattr(self, "_world_name", self.__class__.__name__)
+            self._outputs = {
+                "mutualism_benefit": BioSignal(
+                    source=source_name,
+                    name="mutualism_benefit",
+                    value=entries,
+                    time=t,
+                    metadata=SignalMetadata(units=None, description="Mutualism benefits", kind="event"),
+                )
+            }
 
-            world.publish_biosignal(self, topic="mutualism_benefit", payload={
-                "species": self._species_a_name,
-                "benefit": benefit_to_a,
-                "type": self.benefit_type,
-                "t": t,
-            })
-
-            world.publish_biosignal(self, topic="mutualism_benefit", payload={
-                "species": self._species_b_name,
-                "benefit": benefit_to_b,
-                "type": self.benefit_type,
-                "t": t,
-            })
+    def get_outputs(self) -> Dict[str, BioSignal]:
+        return dict(self._outputs)
 
     def visualize(self) -> Optional["VisualSpec"]:
         return None  # Mutualism effects are reflected in population dynamics

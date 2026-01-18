@@ -60,8 +60,6 @@ class EdgeModel(BaseModel):
 class MetaModel(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
-    solver: Optional[str] = None
-    solverConfig: Dict[str, Any] = {}
 
 
 class GraphModel(BaseModel):

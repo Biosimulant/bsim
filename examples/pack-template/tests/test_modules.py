@@ -1,70 +1,38 @@
 """Tests for my_pack modules."""
-import pytest
-
-
-class MockWorld:
-    """Mock BioWorld for testing."""
-
-    def __init__(self):
-        self.signals = []
-
-    def publish_biosignal(self, source, topic, payload):
-        self.signals.append({
-            "source": source,
-            "topic": topic,
-            "payload": payload,
-        })
 
 
 def test_counter_increments():
-    """Counter should increment on each STEP event."""
     from my_pack import Counter
-    from bsim import BioWorldEvent
 
-    counter = Counter(name="test")
+    counter = Counter(name="test", min_dt=0.1)
     counter.reset()
-    world = MockWorld()
 
-    # Simulate two steps
-    counter.on_event(BioWorldEvent.STEP, {"t": 0.1}, world)
-    counter.on_event(BioWorldEvent.STEP, {"t": 0.2}, world)
+    counter.advance_to(0.1)
+    counter.advance_to(0.2)
 
-    assert len(world.signals) == 2
-    assert world.signals[0]["payload"]["count"] == 1
-    assert world.signals[1]["payload"]["count"] == 2
+    outputs = counter.get_outputs()
+    assert outputs["count"].value["count"] == 2
 
 
 def test_counter_reset():
-    """Counter should reset to zero."""
     from my_pack import Counter
-    from bsim import BioWorldEvent
 
-    counter = Counter()
-    world = MockWorld()
-
-    counter.on_event(BioWorldEvent.STEP, {"t": 0.1}, world)
-    assert world.signals[0]["payload"]["count"] == 1
-
+    counter = Counter(min_dt=0.1)
+    counter.advance_to(0.1)
     counter.reset()
-    world.signals.clear()
+    counter.advance_to(0.2)
 
-    counter.on_event(BioWorldEvent.STEP, {"t": 0.2}, world)
-    assert world.signals[0]["payload"]["count"] == 1  # Reset to 1, not 2
+    outputs = counter.get_outputs()
+    assert outputs["count"].value["count"] == 1
 
 
 def test_counter_visualize():
-    """Counter should produce timeseries visualization."""
     from my_pack import Counter
-    from bsim import BioWorldEvent
 
-    counter = Counter(name="viz_test")
-    world = MockWorld()
-
-    # No data yet
+    counter = Counter(name="viz_test", min_dt=0.1)
     assert counter.visualize() is None
 
-    counter.on_event(BioWorldEvent.STEP, {"t": 0.1}, world)
-
+    counter.advance_to(0.1)
     vis = counter.visualize()
     assert vis is not None
     assert vis["render"] == "timeseries"
@@ -72,48 +40,14 @@ def test_counter_visualize():
 
 
 def test_accumulator_accumulates():
-    """Accumulator should sum incoming values."""
     from my_pack import Accumulator
+    from bsim import BioSignal
 
-    acc = Accumulator(initial=10.0)
-    world = MockWorld()
+    acc = Accumulator(initial=10.0, min_dt=0.1)
+    acc.set_inputs({"value": BioSignal(source="src", name="value", value=5.0, time=0.1)})
+    acc.advance_to(0.1)
+    acc.set_inputs({"value": BioSignal(source="src", name="value", value=3.0, time=0.2)})
+    acc.advance_to(0.2)
 
-    acc.on_signal("value", {"amount": 5.0, "t": 0.1}, None, world)
-    acc.on_signal("value", {"amount": 3.0, "t": 0.2}, None, world)
-
-    assert len(world.signals) == 2
-    assert world.signals[0]["payload"]["total"] == 15.0
-    assert world.signals[1]["payload"]["total"] == 18.0
-
-
-def test_accumulator_ignores_other_topics():
-    """Accumulator should ignore non-value signals."""
-    from my_pack import Accumulator
-
-    acc = Accumulator(initial=0.0)
-    world = MockWorld()
-
-    acc.on_signal("other_topic", {"amount": 100.0}, None, world)
-
-    assert len(world.signals) == 0
-
-
-def test_signal_logger_logs():
-    """SignalLogger should record incoming signals."""
-    from my_pack import SignalLogger
-
-    logger = SignalLogger(max_entries=5)
-    world = MockWorld()
-
-    class FakeSource:
-        pass
-
-    for i in range(10):
-        logger.on_signal("test", {"i": i}, FakeSource(), world)
-
-    # Should have trimmed to max_entries
-    vis = logger.visualize()
-    assert vis is not None
-    assert vis["render"] == "table"
-    # Title should indicate 5 entries (trimmed from 10)
-    # Actually the log keeps max_entries, so it has 5
+    outputs = acc.get_outputs()
+    assert outputs["total"].value["total"] == 18.0

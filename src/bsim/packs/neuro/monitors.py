@@ -8,10 +8,10 @@ from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING
 import base64
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from bsim import BioWorld, BioWorldEvent
     from bsim.visuals import VisualSpec
 
 from bsim import BioModule
+from bsim.signals import BioSignal
 
 
 def _escape_svg_text(s: str) -> str:
@@ -38,7 +38,9 @@ class SpikeMonitor(BioModule):
         max_neurons: Optional[int] = None,
         width: int = 600,
         height: int = 300,
+        min_dt: float = 0.001,
     ) -> None:
+        self.min_dt = min_dt
         self.max_events = max_events
         self.max_neurons = max_neurons
         self.width = width
@@ -48,9 +50,6 @@ class SpikeMonitor(BioModule):
         self._t_min: float = float("inf")
         self._t_max: float = float("-inf")
         self._neuron_max: int = 0
-
-    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
-        return set()  # Only receives signals, not world events
 
     def inputs(self) -> Set[str]:
         return {"spikes"}
@@ -65,18 +64,12 @@ class SpikeMonitor(BioModule):
         self._t_max = float("-inf")
         self._neuron_max = 0
 
-    def on_signal(
-        self,
-        topic: str,
-        payload: Dict[str, Any],
-        source: Any,
-        world: "BioWorld",
-    ) -> None:
-        if topic != "spikes":
+    def set_inputs(self, signals: Dict[str, BioSignal]) -> None:
+        signal = signals.get("spikes")
+        if signal is None:
             return
-
-        t = float(payload.get("t", 0.0))
-        ids = payload.get("ids", [])
+        t = float(signal.time)
+        ids = signal.value or []
 
         self._t_min = min(self._t_min, t)
         self._t_max = max(self._t_max, t)
@@ -93,10 +86,11 @@ class SpikeMonitor(BioModule):
             if self._events:
                 self._t_min = min(e[0] for e in self._events)
 
-    def on_event(
-        self, event: "BioWorldEvent", payload: Dict[str, Any], world: "BioWorld"
-    ) -> None:
-        pass  # No world event handling needed
+    def advance_to(self, t: float) -> None:
+        return
+
+    def get_outputs(self) -> Dict[str, BioSignal]:
+        return {}
 
     def visualize(self) -> Optional["VisualSpec"]:
         """Generate an SVG raster plot of collected spikes."""
@@ -237,16 +231,15 @@ class RateMonitor(BioModule):
         self,
         window_size: float = 0.05,
         n_neurons: int = 100,
+        min_dt: float = 0.001,
     ) -> None:
+        self.min_dt = min_dt
         self.window_size = window_size
         self.n_neurons = n_neurons
 
         self._spike_times: List[float] = []
         self._rate_series: List[List[float]] = []  # [[t, rate], ...]
         self._last_t: float = 0.0
-
-    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
-        return set()
 
     def inputs(self) -> Set[str]:
         return {"spikes"}
@@ -259,18 +252,12 @@ class RateMonitor(BioModule):
         self._rate_series = []
         self._last_t = 0.0
 
-    def on_signal(
-        self,
-        topic: str,
-        payload: Dict[str, Any],
-        source: Any,
-        world: "BioWorld",
-    ) -> None:
-        if topic != "spikes":
+    def set_inputs(self, signals: Dict[str, BioSignal]) -> None:
+        signal = signals.get("spikes")
+        if signal is None:
             return
-
-        t = float(payload.get("t", 0.0))
-        ids = payload.get("ids", [])
+        t = float(signal.time)
+        ids = signal.value or []
 
         # Record all spike times
         for _ in ids:
@@ -289,10 +276,11 @@ class RateMonitor(BioModule):
         # Trim old spike times for memory efficiency
         self._spike_times = [st for st in self._spike_times if st >= window_start]
 
-    def on_event(
-        self, event: "BioWorldEvent", payload: Dict[str, Any], world: "BioWorld"
-    ) -> None:
-        pass
+    def advance_to(self, t: float) -> None:
+        return
+
+    def get_outputs(self) -> Dict[str, BioSignal]:
+        return {}
 
     def visualize(self) -> Optional["VisualSpec"]:
         if not self._rate_series:
@@ -323,12 +311,10 @@ class StateMonitor(BioModule):
         max_points: Maximum points per series (oldest dropped).
     """
 
-    def __init__(self, max_points: int = 5000) -> None:
+    def __init__(self, max_points: int = 5000, min_dt: float = 0.001) -> None:
+        self.min_dt = min_dt
         self.max_points = max_points
         self._series: Dict[int, List[List[float]]] = {}  # neuron_idx -> [[t, v], ...]
-
-    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
-        return set()
 
     def inputs(self) -> Set[str]:
         return {"state"}
@@ -339,17 +325,12 @@ class StateMonitor(BioModule):
     def reset(self) -> None:
         self._series = {}
 
-    def on_signal(
-        self,
-        topic: str,
-        payload: Dict[str, Any],
-        source: Any,
-        world: "BioWorld",
-    ) -> None:
-        if topic != "state":
+    def set_inputs(self, signals: Dict[str, BioSignal]) -> None:
+        signal = signals.get("state")
+        if signal is None:
             return
-
-        t = float(payload.get("t", 0.0))
+        payload = signal.value or {}
+        t = float(payload.get("t", signal.time))
         indices = payload.get("indices", [])
         v_vals = payload.get("v", [])
 
@@ -362,10 +343,11 @@ class StateMonitor(BioModule):
             if len(self._series[idx]) > self.max_points:
                 self._series[idx] = self._series[idx][-self.max_points:]
 
-    def on_event(
-        self, event: "BioWorldEvent", payload: Dict[str, Any], world: "BioWorld"
-    ) -> None:
-        pass
+    def advance_to(self, t: float) -> None:
+        return
+
+    def get_outputs(self) -> Dict[str, BioSignal]:
+        return {}
 
     def visualize(self) -> Optional["VisualSpec"]:
         if not self._series:
@@ -402,7 +384,8 @@ class NeuroMetrics(BioModule):
         n_neurons: Total number of neurons (for rate calculation).
     """
 
-    def __init__(self, n_neurons: int = 100) -> None:
+    def __init__(self, n_neurons: int = 100, min_dt: float = 0.001) -> None:
+        self.min_dt = min_dt
         self.n_neurons = n_neurons
 
         self._spike_count: int = 0
@@ -410,9 +393,6 @@ class NeuroMetrics(BioModule):
         self._spike_times_by_neuron: Dict[int, List[float]] = {}
         self._t_start: Optional[float] = None
         self._t_end: float = 0.0
-
-    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
-        return set()
 
     def inputs(self) -> Set[str]:
         return {"spikes"}
@@ -427,18 +407,12 @@ class NeuroMetrics(BioModule):
         self._t_start = None
         self._t_end = 0.0
 
-    def on_signal(
-        self,
-        topic: str,
-        payload: Dict[str, Any],
-        source: Any,
-        world: "BioWorld",
-    ) -> None:
-        if topic != "spikes":
+    def set_inputs(self, signals: Dict[str, BioSignal]) -> None:
+        signal = signals.get("spikes")
+        if signal is None:
             return
-
-        t = float(payload.get("t", 0.0))
-        ids = payload.get("ids", [])
+        t = float(signal.time)
+        ids = signal.value or []
 
         if self._t_start is None:
             self._t_start = t
@@ -453,10 +427,11 @@ class NeuroMetrics(BioModule):
                 self._spike_times_by_neuron[nid] = []
             self._spike_times_by_neuron[nid].append(t)
 
-    def on_event(
-        self, event: "BioWorldEvent", payload: Dict[str, Any], world: "BioWorld"
-    ) -> None:
-        pass
+    def advance_to(self, t: float) -> None:
+        return
+
+    def get_outputs(self) -> Dict[str, BioSignal]:
+        return {}
 
     def _compute_cv(self) -> Optional[float]:
         """Compute coefficient of variation of inter-spike intervals."""

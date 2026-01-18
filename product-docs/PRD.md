@@ -5,28 +5,28 @@ Last updated: 2026-01-12
 
 ## 1) Summary
 
-`bsim` is a modular biological simulation engine focused on composability: users build simulations by wiring reusable `BioModule`s into a `BioWorld`, driven by an injected `Solver`. The project also includes SimUI: a Python-declared web UI for controlling runs and rendering module visuals via a JSON contract.
+`bsim` is a modular biological simulation engine focused on composability: users build simulations by wiring reusable `BioModule`s into a `BioWorld` that orchestrates multi-rate execution and signal routing. The project also includes SimUI: a Python-declared web UI for controlling runs and rendering module visuals via a JSON contract.
 
-This PRD describes the end-to-end product, from core simulation primitives through configuration, UI, plugins/adapters, and a future hosted run-management platform.
+This PRD describes the end-to-end product, from core simulation primitives through configuration, UI, plugins, and a future hosted run-management platform.
 
 ## 2) Goals
 
 ### Near-term (v0.x)
-- Provide a stable, minimal core API: `BioWorld`, `BioWorldEvent`, `BioModule`, `Solver`, wiring loaders/builders, and a minimal visuals contract.
+- Provide a stable, minimal core API: `BioWorld`, `WorldEvent`, `BioModule`, `BioSignal`, wiring loaders/builders, and a minimal visuals contract.
 - Ensure packaging is correct and optional dependencies are truly optional.
-- Provide a functional “run from config” workflow for YAML/TOML wiring specs, including a minimal CLI.
+- Provide a functional "run from config" workflow for YAML/TOML wiring specs, including a minimal CLI.
 - Provide SimUI that can run local simulations, stream status (SSE) with polling fallback, show events, and render visuals.
 - Ship one credible domain reference pack focused on neuroscience (single neuron + small microcircuit) to prove end-to-end usability.
 
 ### Mid-term (v1.0)
-- Define a plugin SDK: third-party modules/solvers/visual renderers registered via entry points.
+- Define a plugin SDK: third-party modules and visual renderers registered via entry points.
 - Standardize configuration and contracts (versioned schemas, compatibility guarantees).
-- Add at least 1–2 domain module packs as reference implementations (not “complete biology”, but credible end-to-end examples).
+- Add at least 1-2 domain module packs as reference implementations (not "complete biology", but credible end-to-end examples).
 - Add basic interoperability (import/export) with at least one modeling standard or a constrained subset.
-  - Preference: standards are integrated via adapters (external packages) rather than being reimplemented in core.
+  - Preference: standards are integrated inside biomodule packages (not in core).
 
 ### Long-term
-- “Hybrid execution”: batch runs, parameter sweeps, distributed execution options.
+- "Hybrid execution": batch runs, parameter sweeps, distributed execution options.
 - Web platform: project management, storage, collaboration, cloud execution.
 
 ## 3) Non-goals (for core repo scope)
@@ -35,7 +35,7 @@ This PRD describes the end-to-end product, from core simulation primitives throu
 - Full SBML/CellML fidelity in early versions.
 - Production-grade distributed compute orchestration in early versions.
 - Replacing domain-specific simulators; `bsim` is a composition/orchestration layer first.
-  - `bsim` should embrace adapters to existing simulators/standards (e.g., Brian2/NEURON/NeuroML tooling), not compete with them.
+  - Biomodules may wrap external simulators, but the core does not re-implement them.
 
 ## 4) Personas & primary use cases
 
@@ -60,20 +60,19 @@ This PRD describes the end-to-end product, from core simulation primitives throu
 ### R1: Simulation runtime
 - Must support a single `BioWorld` coordinating:
   - lifecycle events
-  - module event listeners
+  - multi-rate scheduling
   - directed module-to-module signals
 - Must be robust to module/listener errors (log + continue; configurable later).
 - Must support cooperative pause/resume/stop with predictable semantics.
 
-### R2: Solvers
-- Must define a stable solver contract (`Solver.simulate(..., emit=...)`).
-- Must ship at least one reference solver (fixed-step).
-- Must enable extension (processes/custom solvers).
+### R2: Scheduling and time
+- Must support `min_dt` and `next_due_time(t)` for module scheduling.
+- Must support a global tick stream for UI/event consumers (`tick_dt`).
+- Must define time units (`seconds` by default) consistently across modules.
 
 ### R3: Modules
 - Must define module base interface and optional capabilities:
-  - event subscriptions
-  - biosignal handlers
+  - `setup`, `reset`, `advance_to`, `set_inputs`, `get_outputs`, `get_state`
   - port declarations for validation
   - visuals exposure
 
@@ -91,7 +90,7 @@ This PRD describes the end-to-end product, from core simulation primitives throu
 
 ### R6: SimUI
 - Must mount and serve a local web UI with:
-  - controls (steps/dt + extensible controls)
+  - controls (duration/tick_dt + extensible controls)
   - run/pause/resume/reset
   - event log and visuals panel
   - SSE streaming transport with polling fallback (no websockets required)
@@ -100,8 +99,7 @@ This PRD describes the end-to-end product, from core simulation primitives throu
 ### R7: Plugin SDK (mid-term)
 - Must support discovery and registration of:
   - modules
-  - solvers
-  - (optionally) renderers / adapters
+  - renderers
 - Must be versioned and compatible across `bsim` versions with clear rules.
 
 ### R8: Web platform (long-term)

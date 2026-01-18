@@ -9,7 +9,7 @@ class VisualSpec(TypedDict, total=False):
 
     Required keys:
     - render: the visual type (e.g., 'timeseries', 'bar', 'graph', 'scatter', 'heatmap', 'table', 'image', 'custom:...')
-    - data: JSON-serializable data payload interpreted by the client adapter for the given render type
+    - data: JSON-serializable data payload interpreted by the client renderer for the given render type
     """
 
     render: str

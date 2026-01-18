@@ -53,8 +53,6 @@ export interface GraphEdge {
 export interface GraphMeta {
   title?: string
   description?: string
-  solver?: string
-  solverConfig?: Record<string, unknown>
 }
 
 export interface ConfigGraph {
@@ -144,7 +142,8 @@ export function makeApi(baseUrl: string) {
     }).toString()}`),
     visuals: () => get('/api/visuals'),
     snapshot: () => get('/api/snapshot'),
-    run: (steps: number, dt: number, extra?: Record<string, unknown>) => post('/api/run', { steps, dt, ...(extra || {}) }),
+    run: (duration: number, tick_dt?: number, extra?: Record<string, unknown>) =>
+      post('/api/run', { duration, tick_dt, ...(extra || {}) }),
     pause: () => post('/api/pause', {}),
     resume: () => post('/api/resume', {}),
     reset: () => post('/api/reset', {}),

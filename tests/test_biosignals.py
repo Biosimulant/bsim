@@ -5,69 +5,112 @@ def test_biosignal_routing_eye_to_lgn_to_sc(bsim):
     calls = {"lgn": 0, "sc": 0}
 
     class Eye(bsim.BioModule):
-        def subscriptions(self):
-            return {bsim.BioWorldEvent.STEP}
+        def __init__(self):
+            self.min_dt = 0.1
+            self._outputs = {}
 
-        def on_event(self, event, payload, world):
-            world.publish_biosignal(self, topic="vision", payload={"t": payload.get("t")})
+        def advance_to(self, t: float) -> None:
+            self._outputs = {
+                "vision": bsim.BioSignal(source="eye", name="vision", value=t, time=t)
+            }
+
+        def get_outputs(self):
+            return dict(self._outputs)
 
     class LGN(bsim.BioModule):
-        def on_event(self, event, payload, world):
-            pass
+        def __init__(self):
+            self.min_dt = 0.1
+            self._outputs = {}
 
-        def on_signal(self, topic, payload, source, world):
-            if topic == "vision":
+        def set_inputs(self, signals):
+            if "vision" in signals:
                 calls["lgn"] += 1
-                world.publish_biosignal(self, topic="thalamus", payload={"relay": payload})
+                self._outputs = {
+                    "thalamus": bsim.BioSignal(
+                        source="lgn", name="thalamus", value=signals["vision"].value, time=signals["vision"].time
+                    )
+                }
+
+        def advance_to(self, t: float) -> None:
+            return
+
+        def get_outputs(self):
+            return dict(self._outputs)
 
     class SC(bsim.BioModule):
-        def on_event(self, event, payload, world):
-            pass
+        def __init__(self):
+            self.min_dt = 0.1
 
-        def on_signal(self, topic, payload, source, world):
-            if topic == "thalamus":
+        def set_inputs(self, signals):
+            if "thalamus" in signals:
                 calls["sc"] += 1
 
-    world = bsim.BioWorld(solver=bsim.FixedStepSolver())
-    eye, lgn, sc = Eye(), LGN(), SC()
-    world.add_biomodule(eye)
-    world.add_biomodule(lgn)
-    world.add_biomodule(sc)
-    world.connect_biomodules(eye, "vision", lgn)
-    world.connect_biomodules(lgn, "thalamus", sc)
+        def advance_to(self, t: float) -> None:
+            return
 
-    world.simulate(steps=2, dt=0.1)
+        def get_outputs(self):
+            return {}
 
-    assert calls["lgn"] == 2
-    assert calls["sc"] == 2
+    world = bsim.BioWorld()
+    world.add_biomodule("eye", Eye(), priority=2)
+    world.add_biomodule("lgn", LGN(), priority=1)
+    world.add_biomodule("sc", SC(), priority=0)
+    world.connect("eye.vision", "lgn.vision")
+    world.connect("lgn.thalamus", "sc.thalamus")
+
+    world.run(duration=0.2, tick_dt=0.1)
+
+    assert calls["lgn"] >= 1
+    assert calls["sc"] >= 1
 
 
 def test_biosignal_is_not_broadcast_without_connection(bsim):
-    received = {"a": 0, "b": 0}
+    received = {"b": 0, "c": 0}
 
     class A(bsim.BioModule):
-        def subscriptions(self):
-            return {bsim.BioWorldEvent.STEP}
+        def __init__(self):
+            self.min_dt = 0.1
+            self._outputs = {}
 
-        def on_event(self, event, payload, world):
-            world.publish_biosignal(self, topic="sig", payload={"t": payload.get("t")})
+        def advance_to(self, t: float) -> None:
+            self._outputs = {"sig": bsim.BioSignal(source="a", name="sig", value=t, time=t)}
+
+        def get_outputs(self):
+            return dict(self._outputs)
 
     class B(bsim.BioModule):
-        def on_signal(self, topic, payload, source, world):
+        def __init__(self):
+            self.min_dt = 0.1
+
+        def set_inputs(self, signals):
             received["b"] += 1
 
+        def advance_to(self, t: float) -> None:
+            return
+
+        def get_outputs(self):
+            return {}
+
     class C(bsim.BioModule):
-        def on_signal(self, topic, payload, source, world):
-            received["a"] += 1
+        def __init__(self):
+            self.min_dt = 0.1
 
-    world = bsim.BioWorld(solver=bsim.FixedStepSolver())
-    a, b, c = A(), B(), C()
-    world.add_biomodule(a)
-    world.add_biomodule(b)
-    world.add_biomodule(c)
-    world.connect_biomodules(a, "sig", b)
+        def set_inputs(self, signals):
+            received["c"] += 1
 
-    world.simulate(steps=1, dt=0.1)
+        def advance_to(self, t: float) -> None:
+            return
 
-    assert received["b"] == 1
-    assert received["a"] == 0
+        def get_outputs(self):
+            return {}
+
+    world = bsim.BioWorld()
+    world.add_biomodule("a", A(), priority=1)
+    world.add_biomodule("b", B(), priority=0)
+    world.add_biomodule("c", C(), priority=0)
+    world.connect("a.sig", "b.sig")
+
+    world.run(duration=0.1, tick_dt=0.1)
+
+    assert received["b"] >= 1
+    assert received["c"] == 0

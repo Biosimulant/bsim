@@ -11,8 +11,6 @@ Or without installing:
 
 from __future__ import annotations
 
-from typing import Any, Dict
-
 import sys
 
 try:
@@ -27,13 +25,14 @@ except ModuleNotFoundError:
 
 class StepSeries(bsim.BioModule):
     def __init__(self) -> None:
+        self.min_dt = 0.1
         self._points: list[list[float]] = []
 
-    def on_event(self, event: bsim.BioWorldEvent, payload: Dict[str, Any], world: bsim.BioWorld) -> None:
-        if event == bsim.BioWorldEvent.STEP:
-            t = float(payload.get("t", 0.0))
-            i = int(payload.get("i", len(self._points)))
-            self._points.append([t, i])
+    def advance_to(self, t: float) -> None:
+        self._points.append([t, len(self._points)])
+
+    def get_outputs(self):
+        return {}
 
     def visualize(self):
         return {
@@ -43,9 +42,9 @@ class StepSeries(bsim.BioModule):
 
 
 def main() -> None:
-    world = bsim.BioWorld(solver=bsim.FixedStepSolver())
-    world.add_biomodule(StepSeries())
-    world.simulate(steps=5, dt=0.2)
+    world = bsim.BioWorld()
+    world.add_biomodule("step_series", StepSeries())
+    world.run(duration=0.5, tick_dt=0.1)
 
     visuals = world.collect_visuals()
     print("Collected visuals:")

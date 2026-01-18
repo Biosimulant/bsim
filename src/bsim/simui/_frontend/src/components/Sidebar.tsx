@@ -17,7 +17,7 @@ function StatusDisplay() {
   if (st.running) return (
     <div className="status-display">
       <div className={`status-badge ${st.paused ? 'status-paused' : 'status-running'}`}>{st.paused ? 'Paused' : 'Running'}</div>
-      <div className="status-info">Step: {st.step_count?.toLocaleString() || 0}</div>
+      <div className="status-info">Ticks: {st.tick_count?.toLocaleString() || 0}</div>
     </div>
   )
   return <div className="status-display"><div className="status-badge status-idle">Idle</div></div>
@@ -35,10 +35,9 @@ function Controls({ onRun, onPause, onResume, onReset }: Props) {
     return Number.isFinite(n) ? n : Number.NaN
   }
   const controlDefault = (name: string): number | undefined => numberControls.find((c) => c.name === name)?.default
-  const steps = toFiniteNumber(state.controls.steps ?? controlDefault('steps'))
-  const dt = toFiniteNumber(state.controls.dt ?? controlDefault('dt'))
-  const duration = steps * dt
-  const simTime = toFiniteNumber(st?.step_count) * dt
+  const duration = toFiniteNumber(state.controls.duration ?? controlDefault('duration'))
+  const tickDt = toFiniteNumber(state.controls.tick_dt ?? controlDefault('tick_dt'))
+  const simTime = toFiniteNumber(st?.tick_count) * tickDt
 
   return (
     <div className="controls">

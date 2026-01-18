@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "bsim-my-pack"
 version = "0.1.0"
-description = "Custom modules and solvers for bsim simulations"
+description = "Custom modules for bsim simulations"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"

@@ -9,7 +9,7 @@
 # Run with generic CLI runner (no demo script needed):
 #   python -m bsim examples/configs/ecology_predator_prey.yaml --simui
 #   python -m bsim examples/configs/ecology_predator_prey.yaml --simui --open
-#   python -m bsim examples/configs/ecology_predator_prey.yaml --steps 5000  # headless
+#   python -m bsim examples/configs/ecology_predator_prey.yaml --duration 50 --tick-dt 0.01  # headless
 
 # Metadata for SimUI (optional but recommended)
 meta:
@@ -51,7 +51,6 @@ meta:
     - **Population Oscillations**: Classic predator-prey cycles
     - **Phase Space Plot**: Trajectory shows limit cycles or equilibrium
     - **Coexistence**: Both species should survive long-term
-  solver: fixed  # Use "default" for temperature slider support
 
 modules:
   # Environment broadcasts conditions to all organisms
@@ -117,31 +116,31 @@ modules:
 
 wiring:
   # Environment broadcasts to all organisms
-  - from: environment.out.conditions
+  - from: environment.conditions
     to:
-      - rabbits.in.conditions
-      - foxes.in.conditions
+      - rabbits.conditions
+      - foxes.conditions
 
   # Population states feed into predation calculator
-  - from: rabbits.out.population_state
+  - from: rabbits.population_state
     to:
-      - predation.in.prey_state
-      - pop_monitor.in.population_state
-      - phase_space.in.population_state
-      - metrics.in.population_state
+      - predation.prey_state
+      - pop_monitor.population_state
+      - phase_space.population_state
+      - metrics.population_state
 
-  - from: foxes.out.population_state
+  - from: foxes.population_state
     to:
-      - predation.in.predator_state
-      - pop_monitor.in.population_state
-      - phase_space.in.population_state
-      - metrics.in.population_state
+      - predation.predator_state
+      - pop_monitor.population_state
+      - phase_space.population_state
+      - metrics.population_state
 
   # Predation affects prey and feeds predators
-  - from: predation.out.predation
+  - from: predation.predation
     to:
-      - rabbits.in.predation
+      - rabbits.predation
 
-  - from: predation.out.food_gained
+  - from: predation.food_gained
     to:
-      - foxes.in.food_gained
+      - foxes.food_gained

@@ -51,8 +51,8 @@ def run_single_neuron(preset_name: str = "RS", I_current: float = 10.0) -> dict:
     print(f"Running {preset_name} neuron with I = {I_current}")
     print("=" * 60)
 
-    # Create world with fixed-step solver
-    world = bsim.BioWorld(solver=bsim.FixedStepSolver())
+    # Create world
+    world = bsim.BioWorld()
 
     # Create modules
     current_source = StepCurrent(I=I_current)
@@ -74,16 +74,14 @@ def run_single_neuron(preset_name: str = "RS", I_current: float = 10.0) -> dict:
     wb.add("metrics", metrics)
 
     # Connect: current -> neuron -> monitors
-    wb.connect("current.out.current", ["neuron.in.current"])
-    wb.connect("neuron.out.spikes", ["spike_mon.in.spikes", "metrics.in.spikes"])
-    wb.connect("neuron.out.state", ["state_mon.in.state"])
+    wb.connect("current.current", ["neuron.current"])
+    wb.connect("neuron.spikes", ["spike_mon.spikes", "metrics.spikes"])
+    wb.connect("neuron.state", ["state_mon.state"])
     wb.apply()
 
-    print("Wiring:", world.describe_wiring())
 
     # Simulate for 500ms at 0.1ms steps (dt in seconds)
-    result = world.simulate(steps=5000, dt=0.0001)
-    print(f"Simulation result: {result}")
+    world.run(duration=0.5, tick_dt=0.0001)
 
     # Collect and display visuals
     visuals = world.collect_visuals()
@@ -99,7 +97,7 @@ def run_single_neuron(preset_name: str = "RS", I_current: float = 10.0) -> dict:
             for row in table_data["rows"]:
                 print(f"  {row[0]}: {row[1]}")
 
-    return {"result": result, "visuals": visuals}
+    return {"visuals": visuals}
 
 
 def main() -> None:

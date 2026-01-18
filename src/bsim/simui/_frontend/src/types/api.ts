@@ -30,7 +30,7 @@ export type UiSpec = {
 export type RunStatus = {
   running: boolean
   paused: boolean
-  step_count?: number
+  tick_count?: number
   error?: { message: string }
 }
 

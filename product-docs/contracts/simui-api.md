@@ -23,10 +23,10 @@ Returns UI spec:
 
 ### `POST /api/run`
 Request body (minimum):
-- `steps: int` (>0)
-- `dt: number`
+- `duration: number` (>0)
+- `tick_dt: number | null`
 Optional:
-- additional run params (to be formalized; avoid private solver mutation)
+- additional run params (to be formalized)
 
 Responses:
 - `202` accepted (run started)
@@ -39,7 +39,7 @@ Returns:
 - `paused: bool`
 - `started_at: str | null`
 - `finished_at: str | null`
-- `step_count: int`
+- `tick_count: int`
 - `error: { message: str } | null`
 
 ### `GET /api/events?since_id=<int>&limit=<int>`
@@ -59,7 +59,7 @@ Returns:
 Returns:
 - `status: ...`
 - `visuals: ...`
-- `events: ...` (typically “all since start” for quick UI boot)
+- `events: ...` (typically "all since start" for quick UI boot)
 
 ### `POST /api/pause`
 Returns `{ ok: bool, reason?: str }`

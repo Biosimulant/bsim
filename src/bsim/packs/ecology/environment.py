@@ -7,10 +7,10 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from bsim import BioWorld, BioWorldEvent
     from bsim.visuals import VisualSpec
 
 from bsim import BioModule
+from bsim.signals import BioSignal, SignalMetadata
 
 
 class Environment(BioModule):
@@ -27,8 +27,6 @@ class Environment(BioModule):
         temperature_variation: Random variation in temperature per step.
         seasonal_cycle: If True, apply sinusoidal seasonal variation.
         season_period: Period of seasonal cycle in simulation time units.
-        sync_from_solver: If True, read temperature/water from solver state
-            (enables UI control via FixedStepBioSolver).
     """
 
     def __init__(
@@ -40,8 +38,9 @@ class Environment(BioModule):
         temperature_variation: float = 0.0,
         seasonal_cycle: bool = False,
         season_period: float = 365.0,
-        sync_from_solver: bool = False,
+        min_dt: float = 1.0,
     ) -> None:
+        self.min_dt = min_dt
         self._temperature = temperature
         self._water = water
         self._food = food_availability
@@ -49,22 +48,17 @@ class Environment(BioModule):
         self._temp_variation = temperature_variation
         self._seasonal_cycle = seasonal_cycle
         self._season_period = season_period
-        self._sync_from_solver = sync_from_solver
-
         self._base_temperature = temperature
         self._base_water = water
         self._time: float = 0.0
         self._history: List[Dict[str, float]] = []
+        self._outputs: Dict[str, BioSignal] = {}
 
         # Allow external control to modify these
         self.temperature = temperature
         self.water = water
         self.food_availability = food_availability
         self.sunlight = sunlight
-
-    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
-        from bsim import BioWorldEvent
-        return {BioWorldEvent.STEP}
 
     def inputs(self) -> Set[str]:
         return set()
@@ -98,24 +92,8 @@ class Environment(BioModule):
 
         return temp
 
-    def on_event(
-        self, event: "BioWorldEvent", payload: Dict[str, Any], world: "BioWorld"
-    ) -> None:
-        from bsim import BioWorldEvent
-        if event != BioWorldEvent.STEP:
-            return
-
-        t = float(payload.get("t", self._time))
+    def advance_to(self, t: float) -> None:
         self._time = t
-
-        # Optionally sync from solver state (for UI control)
-        if self._sync_from_solver:
-            solver_state = getattr(world.solver, "_initial_state", None)
-            if solver_state:
-                if "temperature" in solver_state:
-                    self.temperature = float(solver_state["temperature"])
-                if "water" in solver_state:
-                    self.water = float(solver_state["water"])
 
         # Compute current environmental state
         current_temp = self._compute_temperature(t)
@@ -132,17 +110,19 @@ class Environment(BioModule):
         # Record history
         self._history.append(conditions.copy())
 
-        # Broadcast to all connected modules
-        world.publish_biosignal(self, topic="conditions", payload=conditions)
+        source_name = getattr(self, "_world_name", self.__class__.__name__)
+        self._outputs = {
+            "conditions": BioSignal(
+                source=source_name,
+                name="conditions",
+                value=conditions,
+                time=t,
+                metadata=SignalMetadata(units=None, description="Environmental conditions", kind="state"),
+            )
+        }
 
-    def on_signal(
-        self,
-        topic: str,
-        payload: Dict[str, Any],
-        source: Any,
-        world: "BioWorld",
-    ) -> None:
-        pass  # Environment does not receive signals
+    def get_outputs(self) -> Dict[str, BioSignal]:
+        return dict(self._outputs)
 
     def visualize(self) -> Optional["VisualSpec"]:
         """Generate a multi-series timeseries of environmental conditions."""

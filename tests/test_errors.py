@@ -1,8 +1,19 @@
 import pytest
 
 
-def test_error_event_and_after_simulation_emitted(bsim, failing_solver):
-    world = bsim.BioWorld(solver=failing_solver)
+def test_error_event_and_finished_emitted(bsim):
+    class Boom(bsim.BioModule):
+        def __init__(self):
+            self.min_dt = 0.1
+
+        def advance_to(self, t: float) -> None:
+            raise RuntimeError("boom")
+
+        def get_outputs(self):
+            return {}
+
+    world = bsim.BioWorld()
+    world.add_biomodule("boom", Boom())
     seen = []
 
     def listener(ev, _payload):
@@ -10,7 +21,7 @@ def test_error_event_and_after_simulation_emitted(bsim, failing_solver):
 
     world.on(listener)
     with pytest.raises(RuntimeError):
-        world.simulate(steps=2, dt=0.1)
+        world.run(duration=0.1, tick_dt=0.1)
 
-    assert bsim.BioWorldEvent.ERROR in seen
-    assert bsim.BioWorldEvent.AFTER_SIMULATION in seen
+    assert bsim.WorldEvent.ERROR in seen
+    assert bsim.WorldEvent.FINISHED in seen

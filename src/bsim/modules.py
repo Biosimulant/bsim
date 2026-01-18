@@ -1,39 +1,49 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Set, TYPE_CHECKING, List, Union
+from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING
+
+from .signals import BioSignal
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from .world import BioWorld, BioWorldEvent
     from .visuals import VisualSpec
 
 
 class BioModule(ABC):
-    """Base interface for modules that listen to world events.
+    """Runnable module interface for the BioWorld orchestrator."""
 
-    Optionally override `subscriptions` to declare a subset of events to receive.
-    - Return `None` to receive all events (default).
-    - Return an empty set to receive no world events (signals-only module).
-    - Return a non-empty set to receive only those events.
-    """
+    # Minimum time step for this module (in BioWorld's canonical time unit).
+    min_dt: float = 0.0
 
-    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
-        return None
-
-    # Handle global world events. Default is a no-op; override as needed.
-    def on_event(self, event: "BioWorldEvent", payload: Dict[str, Any], world: "BioWorld") -> None:
+    def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
+        """Initialize the module for a run. Default is a no-op."""
         return
 
-    # Optional: handle directed module-to-module messages ("biosignals").
-    # Default is a no-op so simple modules only implementing on_event work.
-    def on_signal(
-        self,
-        topic: str,
-        payload: Dict[str, Any],
-        source: "BioModule",
-        world: "BioWorld",
-    ) -> None:
+    def reset(self) -> None:
+        """Reset the module to its initial state. Default is a no-op."""
         return
+
+    @abstractmethod
+    def advance_to(self, t: float) -> None:
+        """Advance the module's internal state to time t."""
+        raise NotImplementedError
+
+    def set_inputs(self, signals: Dict[str, BioSignal]) -> None:
+        """Receive input signals for the next advance step."""
+        return
+
+    @abstractmethod
+    def get_outputs(self) -> Dict[str, BioSignal]:
+        """Return current output signals."""
+        raise NotImplementedError
+
+    def get_state(self) -> Dict[str, Any]:
+        """Return serializable state for checkpointing."""
+        return {}
+
+    def next_due_time(self, now: float) -> float:
+        """Return the next time this module should be stepped."""
+        return now + self.min_dt
 
     # --- Optional Port Metadata (for validation and tooling) ---
     # Return declared input and output port names. Defaults are empty, meaning

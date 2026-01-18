@@ -86,10 +86,10 @@ This plan assumes a team and funding. See `STRATEGY.md` for business model and G
 
 **Goal:** Prove single-paradigm value with SBML
 
-#### Month 1: First Adapter
-- [ ] Build tellurium adapter (SBML execution)
+#### Month 1: First Biomodule Package
+- [ ] Build tellurium-backed biomodule package (SBML execution)
 - [ ] Test with 10 BioModels models
-- [ ] Document adapter contract
+- [ ] Document biomodule packaging pattern
 
 #### Month 2: Model Index
 - [ ] Index BioModels (automated sync)
@@ -135,8 +135,8 @@ This plan assumes a team and funding. See `STRATEGY.md` for business model and G
 
 **Goal:** Prove multi-paradigm composition
 
-#### Month 7: NeuroML Adapter
-- [ ] Build pyNeuroML adapter
+#### Month 7: NeuroML Biomodule Package
+- [ ] Build pyNeuroML-backed biomodule package
 - [ ] Index NeuroML-DB models
 - [ ] Test composition: SBML + NeuroML
 
@@ -189,10 +189,10 @@ This plan assumes a team and funding. See `STRATEGY.md` for business model and G
 - [ ] Collaboration features
 - [ ] Team billing
 
-#### Month 14: More Adapters
-- [ ] CellML adapter (OpenCOR)
+#### Month 14: More Biomodule Packages
+- [ ] CellML biomodule package (OpenCOR)
 - [ ] Custom Python module upload
-- [ ] Adapter documentation
+- [ ] Biomodule integration documentation
 
 #### Month 15: Enterprise Prep
 - [ ] Audit logs
@@ -201,7 +201,7 @@ This plan assumes a team and funding. See `STRATEGY.md` for business model and G
 
 **Exit criteria:**
 - Team tier launched
-- 3+ working adapters
+- 3+ working biomodule packages
 - Enterprise-ready feature set
 
 ### Phase 6: Enterprise (Months 16-18)
@@ -234,14 +234,14 @@ This plan assumes a team and funding. See `STRATEGY.md` for business model and G
 
 ## Part 3: Technical Milestones (Platform)
 
-### Milestone P1: First Adapter (tellurium/SBML)
+### Milestone P1: First Biomodule Package (tellurium/SBML)
 
 Priority: Critical
 Dependencies: None
 
 Deliverables:
-- [ ] `TelluriumAdapter` implementing `SimulatorAdapter` protocol
-- [ ] Time synchronization working
+- [ ] Tellurium biomodule package implementing the BioModule contract
+- [ ] BioWorld scheduling validated against SBML runs
 - [ ] BioSignal interchange format
 - [ ] Tests against 10+ BioModels
 
@@ -269,13 +269,13 @@ Deliverables:
 - [ ] Run execution (containerized)
 - [ ] Results display
 
-### Milestone P4: Second Adapter (pyNeuroML)
+### Milestone P4: Second Biomodule Package (pyNeuroML)
 
 Priority: High
 Dependencies: P1
 
 Deliverables:
-- [ ] `NeuroMLAdapter` implementing `SimulatorAdapter`
+- [ ] NeuroML biomodule package implementing the BioModule contract
 - [ ] NeuroML-DB indexing
 - [ ] Cross-paradigm composition tests
 
@@ -285,7 +285,7 @@ Priority: High
 Dependencies: P1, P4
 
 Deliverables:
-- [ ] TimeBroker for multi-adapter sync
+- [ ] Multi-package scheduling validation
 - [ ] Transform functions (unit conversion)
 - [ ] Visual wiring editor
 - [ ] Composition serialization (YAML)
@@ -305,7 +305,7 @@ Deliverables:
 
 ## Success Metrics by Phase
 
-| Phase | WAU | Paying Users | MRR | Adapters |
+| Phase | WAU | Paying Users | MRR | Packages |
 |-------|-----|--------------|-----|----------|
 | End of Phase 2 | 100 | 0 | $0 | 1 |
 | End of Phase 3 | 300 | 10 | $500 | 2 |
@@ -320,7 +320,7 @@ Deliverables:
 ### Month 3 Checkpoint
 - Can we run 100 SBML models reliably?
 - Is the UI usable without explanation?
-- **Kill criteria:** Adapter fundamentally broken, >50% model failures
+- **Kill criteria:** Biomodule integration fundamentally broken, >50% model failures
 
 ### Month 6 Checkpoint
 - Do professors actually use it in courses?

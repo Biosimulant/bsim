@@ -9,7 +9,7 @@ Risk: wiring files can load arbitrary dotted import paths.
 
 Mitigations (planned):
 - Default “safe mode” that prevents dotted imports.
-- Registry-based module/solver resolution (plugin SDK).
+- Registry-based module resolution (plugin SDK).
 - Explicit `--allow-imports` opt-in for trusted local runs.
 
 ## Runtime safety

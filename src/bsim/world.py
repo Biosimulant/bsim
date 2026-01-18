@@ -1,169 +1,283 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from enum import Enum, auto
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING, Tuple
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional
+import heapq
 import logging
 import threading
 
-from .solver import Solver
+from .modules import BioModule
+from .signals import BioSignal
 from .visuals import normalize_visuals
+
 logger = logging.getLogger(__name__)
-if TYPE_CHECKING:  # pragma: no cover - typing only
-    from .modules import BioModule
-    from .visuals import VisualSpec
 
 
-class BioWorldEvent(Enum):
-    """Lifecycle and runtime events emitted by the BioWorld/solver."""
+class WorldEvent(Enum):
+    """Runtime events emitted by the BioWorld orchestrator."""
 
-    LOADED = auto()
-    BEFORE_SIMULATION = auto()
-    STEP = auto()
-    AFTER_SIMULATION = auto()
-    ERROR = auto()
-    PAUSED = auto()
+    STARTED = "started"
+    TICK = "tick"
+    FINISHED = "finished"
+    ERROR = "error"
+    PAUSED = "paused"
+    RESUMED = "resumed"
+    STOPPED = "stopped"
 
 
-Listener = Callable[[BioWorldEvent, Dict[str, Any]], None]
+Listener = Callable[[WorldEvent, Dict[str, Any]], None]
 
 
 class SimulationStop(Exception):
-    """Internal cooperative stop signal for solvers/world loops."""
-    pass
+    """Internal cooperative stop signal for the run loop."""
 
 
 @dataclass
+class ModuleEntry:
+    name: str
+    module: BioModule
+    min_dt: float
+    priority: int = 0
+    last_time: float = 0.0
+
+
+@dataclass
+class Connection:
+    source_module: str
+    source_signal: str
+    target_module: str
+    target_signal: str
+    last_event_time: float = -1.0
+
+
 class BioWorld:
-    """The biological simulation world.
+    """Multi-rate orchestration kernel for runnable biomodules."""
 
-    - Accepts a `solver` via dependency injection (must subclass `Solver`).
-    - Exposes `simulate(steps, dt)` which delegates to the solver.
-    - Allows listeners to subscribe to `BioWorldEvent`s.
-    """
+    def __init__(self, *, time_unit: str = "seconds") -> None:
+        self.time_unit = time_unit
+        self._modules: Dict[str, ModuleEntry] = {}
+        self._connections_by_target: Dict[str, List[Connection]] = {}
+        self._signal_store: Dict[str, Dict[str, BioSignal]] = {}
+        self._queue: List[tuple[float, int, str]] = []
+        self._seq: int = 0
+        self._current_time: float = 0.0
+        self._is_setup: bool = False
+        self._listeners: List[Listener] = []
 
-    solver: Solver
-    listeners: List[Listener] = field(default_factory=list)
-    _biomodule_listeners: Dict["BioModule", Listener] = field(default_factory=dict, init=False, repr=False)
-    _signal_routes: Dict[Tuple["BioModule", str], List[Tuple["BioModule", str]]] = field(
-        default_factory=dict, init=False, repr=False
-    )
-    _loaded_emitted: bool = field(default=False, init=False, repr=False)
-    _stop_requested: bool = field(default=False, init=False, repr=False)
-    _run_event: threading.Event = field(default_factory=threading.Event, init=False, repr=False)
-
-    def __post_init__(self) -> None:
-        # Allow steps to run by default
+        self._stop_requested: bool = False
+        self._run_event = threading.Event()
         self._run_event.set()
 
+    # --- Listener management -----------------------------------------
     def on(self, listener: Listener) -> None:
-        """Register a listener for world events."""
-        self.listeners.append(listener)
+        """Register a listener for runtime events."""
+        self._listeners.append(listener)
 
     def off(self, listener: Listener) -> None:
         """Unregister a listener if present."""
         try:
-            self.listeners.remove(listener)
+            self._listeners.remove(listener)
         except ValueError:
             pass
 
-    def add_biomodule(self, module: "BioModule") -> None:
-        """Attach a BioModule and auto-subscribe it to events.
-
-        Modules can declare selective subscriptions via `module.subscriptions()`.
-        - None: module receives all events.
-        - Empty set: module receives no world events (signals-only).
-        - Non-empty set: module receives only those events.
-        """
-        if module in self._biomodule_listeners:
-            return
-
-        subs = module.subscriptions()
-        subs_snapshot = None if subs is None else set(subs)
-
-        def _module_listener(event: BioWorldEvent, payload: Dict[str, Any]) -> None:
-            if subs_snapshot is not None and event not in subs_snapshot:
-                return
+    def _emit(self, event: WorldEvent, payload: Optional[Dict[str, Any]] = None) -> None:
+        data = payload or {}
+        for listener in list(self._listeners):
             try:
-                module.on_event(event, payload, self)
+                listener(event, data)
             except Exception:
-                # Modules should not break the world loop. Log and continue.
-                logger.exception("BioModule.on_event raised during %s", event)
-                return
+                logger.exception("world listener raised during %s", event)
 
-        self._biomodule_listeners[module] = _module_listener
-        self.on(_module_listener)
-
-    def remove_biomodule(self, module: "BioModule") -> None:
-        """Detach a previously added BioModule."""
-        listener = self._biomodule_listeners.pop(module, None)
-        if listener is not None:
-            self.off(listener)
-
-    # --- Directed module-to-module signals (biosignals) ---
-    def connect_biomodules(
-        self,
-        src: "BioModule",
-        topic: str,
-        dst: "BioModule",
-        *,
-        dst_topic: Optional[str] = None,
-    ) -> None:
-        """Connect a source module topic to a destination module.
-
-        Messages published by `src` on `topic` will be delivered to `dst.on_signal`.
-        If `dst_topic` is provided, the destination will receive the message under
-        that topic name (allowing port renaming).
-        """
-        if dst_topic is None:
-            dst_topic = topic
-        key = (src, topic)
-        lst = self._signal_routes.setdefault(key, [])
-        route = (dst, dst_topic)
-        if route not in lst:
-            lst.append(route)
-
-    def disconnect_biomodules(
-        self,
-        src: "BioModule",
-        topic: str,
-        dst: "BioModule",
-        *,
-        dst_topic: Optional[str] = None,
-    ) -> None:
-        if dst_topic is None:
-            dst_topic = topic
-        key = (src, topic)
-        lst = self._signal_routes.get(key)
-        if not lst:
-            return
+    # --- Module registration -----------------------------------------
+    def add_biomodule(self, name: str, module: BioModule, *, min_dt: Optional[float] = None, priority: int = 0) -> None:
+        if name in self._modules and self._modules[name].module is not module:
+            raise ValueError(f"Module name already registered: {name}")
         try:
-            lst.remove((dst, dst_topic))
-        except ValueError:
-            return
-        if not lst:
-            self._signal_routes.pop(key, None)
+            setattr(module, "_world_name", name)
+        except Exception:
+            pass
+        module_min_dt = min_dt if min_dt is not None else getattr(module, "min_dt", None)
+        if module_min_dt is None or module_min_dt <= 0:
+            raise ValueError(f"Module '{name}' must define a positive min_dt")
+        self._modules[name] = ModuleEntry(name=name, module=module, min_dt=float(module_min_dt), priority=priority)
 
-    def publish_biosignal(self, src: "BioModule", topic: str, payload: Dict[str, Any]) -> None:
-        """Publish a module-originated message to connected modules only."""
-        key = (src, topic)
-        for dst, dst_topic in list(self._signal_routes.get(key, [])):
-            try:
-                dst.on_signal(dst_topic, payload, source=src, world=self)
-            except Exception:
-                # Keep delivery robust; log and continue.
-                logger.exception("BioModule.on_signal raised for topic '%s'", topic)
+    # --- Wiring -------------------------------------------------------
+    def connect(self, source: str, target: str) -> None:
+        """Connect a signal from one module to another.
+
+        Args:
+            source: "module.signal" source reference.
+            target: "module.signal" target reference.
+        """
+        src_parts = source.split(".", 1)
+        dst_parts = target.split(".", 1)
+        if len(src_parts) != 2 or len(dst_parts) != 2:
+            raise ValueError("Source and target must be in format 'module.signal'")
+        src_mod, src_sig = src_parts
+        dst_mod, dst_sig = dst_parts
+        if src_mod not in self._modules:
+            raise KeyError(f"Unknown source module '{src_mod}'")
+        if dst_mod not in self._modules:
+            raise KeyError(f"Unknown target module '{dst_mod}'")
+
+        conn = Connection(
+            source_module=src_mod,
+            source_signal=src_sig,
+            target_module=dst_mod,
+            target_signal=dst_sig,
+        )
+        self._connections_by_target.setdefault(dst_mod, []).append(conn)
+
+    # --- Setup and scheduling ----------------------------------------
+    def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
+        """Initialize all registered modules and seed the scheduler."""
+        config = config or {}
+        self._signal_store = {}
+        self._queue = []
+        self._current_time = 0.0
+
+        # Setup modules (priority order, higher first)
+        sorted_entries = sorted(self._modules.values(), key=lambda e: -e.priority)
+        for entry in sorted_entries:
+            entry.module.setup(config.get(entry.name, {}))
+            entry.last_time = 0.0
+            outputs = entry.module.get_outputs() or {}
+            if outputs:
+                self._signal_store[entry.name] = outputs
+
+        # Seed scheduler
+        for entry in self._modules.values():
+            next_time = entry.module.next_due_time(self._current_time)
+            if next_time <= self._current_time:
+                raise ValueError(
+                    f"Module '{entry.name}' next_due_time({self._current_time}) must be > current time"
+                )
+            self._schedule(entry.name, next_time)
+
+        self._is_setup = True
+
+    def _schedule(self, name: str, t: float) -> None:
+        self._seq += 1
+        heapq.heappush(self._queue, (t, -self._modules[name].priority, self._seq, name))
+
+    def _collect_inputs(self, target_name: str, now: float) -> Dict[str, BioSignal]:
+        inputs: Dict[str, BioSignal] = {}
+        for conn in self._connections_by_target.get(target_name, []):
+            source_outputs = self._signal_store.get(conn.source_module, {})
+            source_signal = source_outputs.get(conn.source_signal)
+            if source_signal is None:
                 continue
+            if source_signal.metadata.kind == "event":
+                if source_signal.time <= conn.last_event_time:
+                    continue
+                conn.last_event_time = source_signal.time
+            inputs[conn.target_signal] = BioSignal(
+                source=conn.source_module,
+                name=conn.target_signal,
+                value=source_signal.value,
+                time=now,
+                metadata=source_signal.metadata,
+            )
+        return inputs
+
+    # --- Run loop ------------------------------------------------------
+    def run(self, duration: float, *, tick_dt: Optional[float] = None) -> None:
+        if not self._is_setup:
+            self.setup()
+        if duration <= 0:
+            return
+
+        end_time = self._current_time + duration
+        next_tick_time = self._current_time if tick_dt is None else self._current_time + tick_dt
+
+        self._stop_requested = False
+        self._run_event.set()
+        self._emit(WorldEvent.STARTED, {"t": self._current_time, "end": end_time})
+
+        try:
+            while self._queue:
+                if self._stop_requested:
+                    raise SimulationStop()
+
+                self._run_event.wait()
+
+                if self._stop_requested:
+                    raise SimulationStop()
+
+                due_time, _prio, _seq, name = heapq.heappop(self._queue)
+                if due_time > end_time:
+                    # Not due in this run; requeue and finish
+                    heapq.heappush(self._queue, (due_time, _prio, _seq, name))
+                    self._current_time = end_time
+                    break
+
+                self._current_time = due_time
+                entry = self._modules[name]
+
+                inputs = self._collect_inputs(name, self._current_time)
+                if inputs:
+                    entry.module.set_inputs(inputs)
+
+                entry.module.advance_to(self._current_time)
+                entry.last_time = self._current_time
+
+                outputs = entry.module.get_outputs() or {}
+                if outputs:
+                    self._signal_store[name] = outputs
+
+                next_time = entry.module.next_due_time(self._current_time)
+                if next_time <= self._current_time:
+                    raise ValueError(
+                        f"Module '{name}' next_due_time({self._current_time}) must be > current time"
+                    )
+                self._schedule(name, next_time)
+
+                if tick_dt is None:
+                    self._emit(WorldEvent.TICK, {"t": self._current_time, "module": name})
+                else:
+                    while next_tick_time <= self._current_time:
+                        self._emit(WorldEvent.TICK, {"t": next_tick_time})
+                        next_tick_time += tick_dt
+
+        except SimulationStop:
+            self._emit(WorldEvent.STOPPED, {"t": self._current_time})
+        except Exception as exc:
+            self._emit(WorldEvent.ERROR, {"t": self._current_time, "error": exc})
+            raise
+        finally:
+            self._emit(WorldEvent.FINISHED, {"t": self._current_time})
+
+    # --- Cooperative controls -----------------------------------------
+    def request_stop(self) -> None:
+        self._stop_requested = True
+        self._run_event.set()
+
+    def request_pause(self) -> None:
+        self._run_event.clear()
+        self._emit(WorldEvent.PAUSED, {"t": self._current_time})
+
+    def request_resume(self) -> None:
+        self._run_event.set()
+        self._emit(WorldEvent.RESUMED, {"t": self._current_time})
+
+    # --- Introspection -------------------------------------------------
+    @property
+    def current_time(self) -> float:
+        return self._current_time
+
+    @property
+    def module_names(self) -> List[str]:
+        return list(self._modules.keys())
+
+    def get_outputs(self, name: str) -> Dict[str, BioSignal]:
+        return self._signal_store.get(name, {})
 
     def collect_visuals(self) -> List[Dict[str, Any]]:
-        """Collect visual specs from all attached modules.
-
-        Returns a list of objects with module metadata and visuals, where each
-        visuals entry is a dict of shape: {"render": <type>, "data": <payload>}.
-        Modules that do not provide visuals are skipped.
-        """
+        """Collect visual specs from all attached modules."""
         out: List[Dict[str, Any]] = []
-        for module in list(self._biomodule_listeners.keys()):
+        for entry in self._modules.values():
+            module = entry.module
             try:
                 visuals = module.visualize()  # type: ignore[attr-defined]
             except Exception:
@@ -171,7 +285,7 @@ class BioWorld:
                 continue
             if not visuals:
                 continue
-            normed = normalize_visuals(visuals)  # filters invalid
+            normed = normalize_visuals(visuals)
             if not normed:
                 continue
             out.append(
@@ -181,105 +295,3 @@ class BioWorld:
                 }
             )
         return out
-
-    # Optional: reset hook for modules before a new run
-    def _reset_modules(self) -> None:
-        for module in list(self._biomodule_listeners.keys()):
-            try:
-                reset_fn = getattr(module, "reset", None)
-                if callable(reset_fn):
-                    reset_fn()  # type: ignore[misc]
-            except Exception:
-                logger.exception("BioModule.reset raised for %s", module.__class__.__name__)
-
-    # Internal: emit to all listeners
-    def _emit(self, event: BioWorldEvent, payload: Optional[Dict[str, Any]] = None) -> None:
-        # Cooperative controls:
-        # - pause/resume is enforced at STEP boundaries
-        # - stop is enforced at STEP boundaries (so AFTER_SIMULATION still emits)
-        if event == BioWorldEvent.STEP:
-            if self._stop_requested:
-                raise SimulationStop()
-            # Block here if paused until resume
-            self._run_event.wait()
-            if self._stop_requested:
-                raise SimulationStop()
-
-        data = payload or {}
-        for listener in list(self.listeners):
-            try:
-                listener(event, data)
-            except Exception:
-                # Listeners should not break the world; log and continue.
-                logger.exception("world listener raised during %s", event)
-                continue
-
-    def simulate(self, *, steps: int, dt: float) -> Any:
-        """Run the simulation using the injected solver.
-
-        Emits BEFORE_SIMULATION and AFTER_SIMULATION events around the solver
-        call. Propagates solver-emitted events via the provided `emit` callback.
-        """
-
-        # Reset cooperative flags for this run
-        self._stop_requested = False
-        self._run_event.set()
-
-        # Give modules a chance to reset their internal state per run (if they implement reset()).
-        self._reset_modules()
-
-        # Emit LOADED only once to indicate readiness.
-        if not self._loaded_emitted:
-            self._emit(BioWorldEvent.LOADED, {"steps": steps, "dt": dt})
-            self._loaded_emitted = True
-        self._emit(BioWorldEvent.BEFORE_SIMULATION, {"steps": steps, "dt": dt})
-
-        try:
-            result = self.solver.simulate(steps=steps, dt=dt, emit=self._emit)
-        except SimulationStop:
-            # Graceful cooperative stop, no ERROR event
-            result = None
-        except Exception as exc:  # pragma: no cover - minimal error path
-            self._emit(BioWorldEvent.ERROR, {"error": exc})
-            raise
-        finally:
-            self._emit(BioWorldEvent.AFTER_SIMULATION, {"steps": steps, "dt": dt})
-
-        return result
-
-    # --- Cooperative controls ---
-    def request_stop(self) -> None:
-        # Wake up any paused loop and signal stop on next STEP
-        self._stop_requested = True
-        self._run_event.set()
-
-    def request_pause(self) -> None:
-        # Next STEP emit will block until resume
-        self._run_event.clear()
-        # Emit PAUSED event to listeners for UI/state tracking
-        self._emit(BioWorldEvent.PAUSED, {})
-
-    def request_resume(self) -> None:
-        self._run_event.set()
-
-    # --- Convenience wiring loader ---
-    def load_wiring(self, path: str) -> None:
-        """Load wiring from a YAML/TOML file and apply it to this world.
-
-        Delegates to the wiring loader in `bsim.wiring`. See `load_wiring` for
-        supported formats and requirements (e.g., `pyyaml` for YAML).
-        """
-        from .wiring import load_wiring as _load_wiring
-
-        _load_wiring(self, path)
-
-    def describe_wiring(self) -> List[Tuple[str, str, str, str]]:
-        """Return a simple description of current biosignal connections.
-
-        Each tuple is (source_module, source_topic, dest_module, dest_topic) using class names.
-        """
-        desc: List[Tuple[str, str, str, str]] = []
-        for (src, topic), dsts in self._signal_routes.items():
-            for dst, dst_topic in dsts:
-                desc.append((src.__class__.__name__, topic, dst.__class__.__name__, dst_topic))
-        return desc

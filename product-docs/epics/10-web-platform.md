@@ -30,7 +30,7 @@ See `STRATEGY.md` for full business context.
 │                      │   • User auth (JWT)                     │
 ├──────────────────────┼─────────────────────────────────────────┤
 │   Execution Workers  │   • Containerized (Docker)              │
-│                      │   • Pre-built images per adapter        │
+│                      │   • Pre-built images per biomodule pkg  │
 │                      │   • Job queue (Redis + Celery/ARQ)      │
 │                      │   • Resource limits                     │
 ├──────────────────────┼─────────────────────────────────────────┤
@@ -39,8 +39,8 @@ See `STRATEGY.md` for full business context.
 │                      │   • Elasticsearch for search            │
 │                      │   • Sync jobs from BioModels etc        │
 ├──────────────────────┼─────────────────────────────────────────┤
-│   bsim Core          │   • Adapters (SBML, NeuroML, custom)    │
-│   (existing)         │   • Wiring, solvers, lifecycle          │
+│   bsim Core          │   • Biomodule packages (SBML, NeuroML)  │
+│   (existing)         │   • Wiring, BioWorld orchestration      │
 │                      │   • SimUI components                    │
 └──────────────────────┴─────────────────────────────────────────┘
 ```
@@ -76,7 +76,7 @@ See `STRATEGY.md` for full business context.
 
 **Technical:**
 - Job queue for async execution
-- Containerized workers per adapter type
+- Containerized workers per biomodule package
 - SSE for progress updates
 - Result caching for repeated runs
 
@@ -109,7 +109,7 @@ See `STRATEGY.md` for full business context.
 - [ ] Save compositions as new "meta-models"
 
 **Technical:**
-- TimeBroker for multi-adapter sync
+- BioWorld scheduling for multi-package sync
 - Transform function library
 - Composition serialization (YAML)
 - Composition as first-class entity in DB
@@ -294,7 +294,7 @@ CREATE TABLE compositions (
   - Resource limits (CPU, memory, time)
   - No privileged operations
 - Model files validated before execution
-- No arbitrary code execution (adapters only)
+- No arbitrary code execution (biomodule packages only)
 
 ## Model Index Sync
 
@@ -403,12 +403,12 @@ async def sync_biomodels():
 1. User authentication
 2. Projects and run history
 3. Parameter editing
-4. NeuroML adapter + sync
+4. NeuroML biomodule package + sync
 5. Basic analytics
 
 ### Phase 3: Composition (Months 7-9)
 1. Visual wiring editor
-2. TimeBroker integration
+2. BioWorld scheduling integration
 3. Composition storage
 4. Freemium pricing
 5. Team features (basic)
@@ -418,7 +418,7 @@ async def sync_biomodels():
 - **Backend:** FastAPI, SQLAlchemy, Celery/ARQ, boto3
 - **Frontend:** React, TypeScript, Plotly, React Flow (wiring editor)
 - **Infrastructure:** Docker, PostgreSQL, Redis, S3
-- **Adapters:** tellurium, pyneuroml (as bsim adapters)
+- **Biomodule packages:** tellurium, pyneuroml
 
 ## Document History
 

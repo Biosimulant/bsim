@@ -38,21 +38,13 @@ from bsim.packs.ecology import (
 
 def setup_predator_prey_world() -> bsim.BioWorld:
     """Set up a classic predator-prey ecosystem."""
-    # Use FixedStepBioSolver with temperature for UI control
-    from bsim.solver import FixedStepBioSolver, TemperatureParams
+    world = bsim.BioWorld()
 
-    solver = FixedStepBioSolver(
-        temperature=TemperatureParams(initial=20.0, bounds=(0.0, 50.0)),
-    )
-    world = bsim.BioWorld(solver=solver)
-
-    # Environment syncs temperature from solver (enables UI slider)
     env = Environment(
         temperature=20.0,
         water=80.0,
         food_availability=1.0,
         seasonal_cycle=False,
-        sync_from_solver=True,  # Read temperature from solver state
     )
 
     # Populations - tuned for stable predator-prey coexistence
@@ -102,25 +94,25 @@ def setup_predator_prey_world() -> bsim.BioWorld:
     wb.add("metrics", metrics)
 
     # Environment -> Populations
-    wb.connect("environment.out.conditions", ["rabbits.in.conditions", "foxes.in.conditions"])
+    wb.connect("environment.conditions", ["rabbits.conditions", "foxes.conditions"])
 
     # Population states -> Predation & Monitors
-    wb.connect("rabbits.out.population_state", [
-        "predation.in.prey_state",
-        "pop_monitor.in.population_state",
-        "phase_space.in.population_state",
-        "metrics.in.population_state",
+    wb.connect("rabbits.population_state", [
+        "predation.prey_state",
+        "pop_monitor.population_state",
+        "phase_space.population_state",
+        "metrics.population_state",
     ])
-    wb.connect("foxes.out.population_state", [
-        "predation.in.predator_state",
-        "pop_monitor.in.population_state",
-        "phase_space.in.population_state",
-        "metrics.in.population_state",
+    wb.connect("foxes.population_state", [
+        "predation.predator_state",
+        "pop_monitor.population_state",
+        "phase_space.population_state",
+        "metrics.population_state",
     ])
 
     # Predation effects
-    wb.connect("predation.out.predation", ["rabbits.in.predation"])
-    wb.connect("predation.out.food_gained", ["foxes.in.food_gained"])
+    wb.connect("predation.predation", ["rabbits.predation"])
+    wb.connect("predation.food_gained", ["foxes.food_gained"])
 
     wb.apply()
     return world
@@ -173,8 +165,8 @@ This simulation demonstrates **Lotka-Volterra style** population dynamics betwee
 
 ### Parameters to Explore
 
-- **Steps**: More steps = longer simulation time
-- **dt**: Time step size (0.1 = 1/10 time unit per step)
+- **Duration**: Longer duration = longer simulation time
+- **tick_dt**: Tick interval for UI updates
 """
 
 THREE_SPECIES_DESCRIPTION = """
@@ -225,28 +217,21 @@ This simulation models a more complex ecosystem with **wolves** preying on both 
 ### Parameters to Explore
 
 - **Season Period**: 100 time units per full cycle
-- Adjust steps to see multiple seasonal cycles
+- Adjust duration to see multiple seasonal cycles
 """
 
 
 def setup_three_species_world() -> bsim.BioWorld:
     """Set up a three-species food chain: grass -> rabbits -> foxes."""
-    # Use FixedStepBioSolver with temperature for UI control
-    from bsim.solver import FixedStepBioSolver, TemperatureParams
+    world = bsim.BioWorld()
 
-    solver = FixedStepBioSolver(
-        temperature=TemperatureParams(initial=20.0, bounds=(-10.0, 50.0)),
-    )
-    world = bsim.BioWorld(solver=solver)
-
-    # Environment with seasonal variation (syncs base temp from solver)
+    # Environment with seasonal variation
     env = Environment(
         temperature=20.0,
         water=80.0,
         food_availability=1.2,
         seasonal_cycle=True,
         season_period=100.0,  # Faster seasons for demo
-        sync_from_solver=True,  # Base temperature from solver, seasonal on top
     )
 
     # Populations
@@ -309,37 +294,37 @@ def setup_three_species_world() -> bsim.BioWorld:
     wb.add("metrics", metrics)
 
     # Environment -> All populations
-    wb.connect("environment.out.conditions", [
-        "rabbits.in.conditions",
-        "deer.in.conditions",
-        "wolves.in.conditions",
+    wb.connect("environment.conditions", [
+        "rabbits.conditions",
+        "deer.conditions",
+        "wolves.conditions",
     ])
 
     # Prey states -> Interactions & Monitors
-    wb.connect("rabbits.out.population_state", [
-        "wolf_rabbit.in.prey_state",
-        "pop_monitor.in.population_state",
-        "phase_space.in.population_state",
-        "metrics.in.population_state",
+    wb.connect("rabbits.population_state", [
+        "wolf_rabbit.prey_state",
+        "pop_monitor.population_state",
+        "phase_space.population_state",
+        "metrics.population_state",
     ])
-    wb.connect("deer.out.population_state", [
-        "wolf_deer.in.prey_state",
-        "pop_monitor.in.population_state",
-        "metrics.in.population_state",
+    wb.connect("deer.population_state", [
+        "wolf_deer.prey_state",
+        "pop_monitor.population_state",
+        "metrics.population_state",
     ])
-    wb.connect("wolves.out.population_state", [
-        "wolf_rabbit.in.predator_state",
-        "wolf_deer.in.predator_state",
-        "pop_monitor.in.population_state",
-        "phase_space.in.population_state",
-        "metrics.in.population_state",
+    wb.connect("wolves.population_state", [
+        "wolf_rabbit.predator_state",
+        "wolf_deer.predator_state",
+        "pop_monitor.population_state",
+        "phase_space.population_state",
+        "metrics.population_state",
     ])
 
     # Predation effects
-    wb.connect("wolf_rabbit.out.predation", ["rabbits.in.predation"])
-    wb.connect("wolf_deer.out.predation", ["deer.in.predation"])
-    wb.connect("wolf_rabbit.out.food_gained", ["wolves.in.food_gained"])
-    wb.connect("wolf_deer.out.food_gained", ["wolves.in.food_gained"])
+    wb.connect("wolf_rabbit.predation", ["rabbits.predation"])
+    wb.connect("wolf_deer.predation", ["deer.predation"])
+    wb.connect("wolf_rabbit.food_gained", ["wolves.food_gained"])
+    wb.connect("wolf_deer.food_gained", ["wolves.food_gained"])
 
     wb.apply()
     return world
@@ -363,8 +348,8 @@ def main() -> None:
         help="Optional YAML config file to load instead of built-in modes",
     )
     parser.add_argument("--port", type=int, default=8765, help="SimUI server port")
-    parser.add_argument("--steps", type=int, default=2000, help="Simulation steps")
-    parser.add_argument("--dt", type=float, default=0.1, help="Time step (time units)")
+    parser.add_argument("--duration", type=float, default=200.0, help="Simulation duration (time units)")
+    parser.add_argument("--tick", type=float, default=0.1, help="Tick interval (time units)")
     args = parser.parse_args()
 
     print("Ecology Pack - SimUI Demo")
@@ -372,7 +357,7 @@ def main() -> None:
 
     if args.config:
         print(f"Loading config: {args.config}")
-        world = bsim.BioWorld(solver=bsim.FixedStepSolver())
+        world = bsim.BioWorld()
         world.load_wiring(args.config)
         description = "Custom configuration loaded from YAML file."
         title = "Ecology Simulation"
@@ -387,8 +372,10 @@ def main() -> None:
         description = THREE_SPECIES_DESCRIPTION
         title = "Three-Species Food Chain"
 
-    print(f"Modules: {len(world._biomodule_listeners)}")
-    print(f"Connections: {len(world.describe_wiring())}")
+    try:
+        print(f"Modules: {len(world.module_names)}")
+    except Exception:
+        pass
     print(f"\nStarting SimUI server on port {args.port}...")
     print(f"Open http://localhost:{args.port}/ui/ in your browser.")
     print("Press Ctrl+C to stop.\n")
@@ -403,8 +390,8 @@ def main() -> None:
             title=title,
             description=description,
             controls=[
-                Number("steps", args.steps, label="Steps", minimum=100, maximum=50000, step=100),
-                Number("dt", args.dt, label="dt (time)", minimum=0.01, maximum=1.0, step=0.01),
+                Number("duration", args.duration, label="Duration", minimum=1.0, maximum=100000.0, step=1.0),
+                Number("tick_dt", args.tick, label="tick_dt", minimum=0.01, maximum=1.0, step=0.01),
                 Button("Run"),
             ],
             outputs=[

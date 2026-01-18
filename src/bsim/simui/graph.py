@@ -4,7 +4,6 @@
 """Graph model and YAML conversion utilities for config editor."""
 from __future__ import annotations
 
-import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -48,8 +47,6 @@ class ConfigMeta:
     """Metadata section from config."""
     title: Optional[str] = None
     description: Optional[str] = None
-    solver: Optional[str] = None
-    solver_config: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -60,22 +57,15 @@ class ConfigGraph:
     meta: ConfigMeta = field(default_factory=ConfigMeta)
 
 
-def _parse_ref(ref: str) -> Tuple[str, Optional[str], str]:
-    """Parse references like "eye.visual_stream" or "eye.out.visual_stream".
+def _parse_ref(ref: str) -> Tuple[str, str]:
+    """Parse references like "eye.visual_stream".
 
-    Returns (name, direction, port). Direction is optional ("in"/"out" or None).
+    Returns (name, port).
     """
-    parts = ref.split(".")
-    if len(parts) < 2:
-        raise ValueError(f"Invalid reference '{ref}', expected 'name.topic' form")
-    name = parts[0]
-    if len(parts) >= 3 and parts[1] in {"in", "out"}:
-        direction = parts[1]
-        port = parts[2]
-    else:
-        direction = None
-        port = parts[-1]
-    return name, direction, port
+    parts = ref.split(".", 1)
+    if len(parts) != 2:
+        raise ValueError(f"Invalid reference '{ref}', expected 'name.port' form")
+    return parts[0], parts[1]
 
 
 def yaml_to_graph(yaml_content: str) -> ConfigGraph:
@@ -100,8 +90,6 @@ def yaml_to_graph(yaml_content: str) -> ConfigGraph:
         graph.meta = ConfigMeta(
             title=meta_section.get("title"),
             description=meta_section.get("description"),
-            solver=meta_section.get("solver") if isinstance(meta_section.get("solver"), str) else None,
-            solver_config=meta_section.get("solver") if isinstance(meta_section.get("solver"), dict) else {},
         )
 
     # Parse modules section
@@ -158,7 +146,7 @@ def yaml_to_graph(yaml_content: str) -> ConfigGraph:
                 continue
 
             try:
-                src_name, _src_dir, src_port = _parse_ref(src)
+                src_name, src_port = _parse_ref(src)
             except ValueError:
                 continue
 
@@ -172,7 +160,7 @@ def yaml_to_graph(yaml_content: str) -> ConfigGraph:
                 if not isinstance(target, str):
                     continue
                 try:
-                    tgt_name, _tgt_dir, tgt_port = _parse_ref(target)
+                    tgt_name, tgt_port = _parse_ref(target)
                 except ValueError:
                     continue
 
@@ -207,16 +195,12 @@ def graph_to_yaml(graph: ConfigGraph) -> str:
     config: Dict[str, Any] = {}
 
     # Build meta section
-    if graph.meta.title or graph.meta.description or graph.meta.solver:
+    if graph.meta.title or graph.meta.description:
         meta: Dict[str, Any] = {}
         if graph.meta.title:
             meta["title"] = graph.meta.title
         if graph.meta.description:
             meta["description"] = graph.meta.description
-        if graph.meta.solver:
-            meta["solver"] = graph.meta.solver
-        elif graph.meta.solver_config:
-            meta["solver"] = graph.meta.solver_config
         config["meta"] = meta
 
     # Build modules section
@@ -238,8 +222,8 @@ def graph_to_yaml(graph: ConfigGraph) -> str:
     if graph.edges:
         wiring_map: Dict[str, List[str]] = defaultdict(list)
         for edge in graph.edges:
-            src_ref = f"{edge.source}.out.{edge.source_handle}"
-            tgt_ref = f"{edge.target}.in.{edge.target_handle}"
+            src_ref = f"{edge.source}.{edge.source_handle}"
+            tgt_ref = f"{edge.target}.{edge.target_handle}"
             wiring_map[src_ref].append(tgt_ref)
 
         wiring: List[Dict[str, Any]] = []
@@ -334,8 +318,6 @@ def graph_to_json(graph: ConfigGraph) -> Dict[str, Any]:
     meta = {
         "title": graph.meta.title,
         "description": graph.meta.description,
-        "solver": graph.meta.solver,
-        "solverConfig": graph.meta.solver_config,
     }
 
     return {"nodes": nodes, "edges": edges, "meta": meta}
@@ -358,8 +340,6 @@ def json_to_graph(data: Dict[str, Any]) -> ConfigGraph:
         graph.meta = ConfigMeta(
             title=meta.get("title"),
             description=meta.get("description"),
-            solver=meta.get("solver"),
-            solver_config=meta.get("solverConfig", {}),
         )
 
     # Parse nodes

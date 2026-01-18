@@ -54,19 +54,19 @@ python examples/neuro_simui_demo.py
 # Using YAML
 python -c "
 import bsim
-w = bsim.BioWorld(solver=bsim.FixedStepSolver())
-w.load_wiring('examples/configs/neuro_single_neuron.yaml')
-result = w.simulate(steps=5000, dt=0.0001)
-print('Simulation complete:', result)
+w = bsim.BioWorld()
+bsim.load_wiring(w, 'examples/configs/neuro_single_neuron.yaml')
+w.run(duration=0.5, tick_dt=0.0001)
+print('Simulation complete')
 for v in w.collect_visuals():
     print(f'  {v[\"module\"]}: {[x[\"render\"] for x in v[\"visuals\"]]}')"
 
 # Using TOML
 python -c "
 import bsim
-w = bsim.BioWorld(solver=bsim.FixedStepSolver())
-w.load_wiring('examples/configs/neuro_microcircuit.toml')
-w.simulate(steps=3000, dt=0.0001)
+w = bsim.BioWorld()
+bsim.load_wiring(w, 'examples/configs/neuro_microcircuit.toml')
+w.run(duration=0.3, tick_dt=0.0001)
 print([v['module'] for v in w.collect_visuals()])"
 ```
 
@@ -364,7 +364,7 @@ Demonstrates how Izhikevich parameters affect spiking behavior.
 import bsim
 from bsim.packs.neuro import StepCurrent, IzhikevichPopulation, StateMonitor, SpikeMonitor
 
-world = bsim.BioWorld(solver=bsim.FixedStepSolver())
+world = bsim.BioWorld()
 
 # Regular spiking neuron with DC input
 current = StepCurrent(I=10.0)
@@ -380,7 +380,7 @@ wb.connect("neuron.spikes", ["spike_mon.spikes"])
 wb.connect("neuron.state", ["state_mon.state"])
 wb.apply()
 
-world.simulate(steps=5000, dt=0.0001)  # 500ms
+world.run(duration=0.5, tick_dt=0.0001)  # 500ms
 visuals = world.collect_visuals()
 ```
 
@@ -407,20 +407,10 @@ The neuro pack supports YAML and TOML wiring configs:
 Load and run:
 ```python
 import bsim
-world = bsim.BioWorld(solver=bsim.FixedStepSolver())
-world.load_wiring("examples/configs/neuro_microcircuit.yaml")
-world.simulate(steps=3000, dt=0.0001)
+world = bsim.BioWorld()
+bsim.load_wiring(world, "examples/configs/neuro_microcircuit.yaml")
+world.run(duration=0.3, tick_dt=0.0001)
 ```
-
-## Adapter Path (Future)
-
-The neuro pack serves as a reference implementation. The same topic/payload conventions can be implemented by adapter modules for external simulators:
-
-- `Brian2PopulationAdapter` - Wraps Brian2 neuron groups
-- `NeuronAdapter` - Wraps NEURON/NMODL models
-- `NeuroMLAdapter` - Loads NeuroML specifications
-
-The goal is for configs to remain stable while backends evolve.
 
 ## See Also
 

@@ -1,5 +1,5 @@
 """
-Demonstrates dependency injection of a solver into BioWorld and event handling.
+Demonstrates BioWorld orchestration and signal routing.
 
 Run with:
     pip install -e .
@@ -11,98 +11,111 @@ Or without installing:
 
 from __future__ import annotations
 
-from typing import Any, Dict
-
 import bsim
 
 
-class CustomSolver(bsim.Solver):
-    """A toy custom solver that emits STEP events and returns a result."""
-
-    def simulate(self, *, steps: int, dt: float, emit) -> Dict[str, Any]:
-        state: Dict[str, Any] = {"time": 0.0, "steps": 0}
-        for i in range(steps):
-            state["time"] += dt
-            state["steps"] = i + 1
-            emit(bsim.BioWorldEvent.STEP, {"i": i, "t": state["time"]})
-        return state
-
-
-def print_listener(event: bsim.BioWorldEvent, payload: Dict[str, Any]) -> None:
-    print(f"EVENT: {event.name} -> {payload}")
+def print_listener(event: bsim.WorldEvent, payload: dict) -> None:
+    print(f"EVENT: {event.value} -> {payload}")
 
 
 class StepLoggerModule(bsim.BioModule):
-    """Example module that only listens to STEP events via subscriptions."""
+    """Example module that advances on its schedule."""
 
-    def subscriptions(self):
-        return {bsim.BioWorldEvent.STEP}
+    def __init__(self):
+        self.min_dt = 0.1
 
-    def on_event(self, event: bsim.BioWorldEvent, payload: Dict[str, Any], world: bsim.BioWorld) -> None:
-        print(f"[Module] {event.name} @ t={payload.get('t')} i={payload.get('i')}")
+    def advance_to(self, t: float) -> None:
+        print(f"[Module] tick @ t={t}")
+
+    def get_outputs(self):
+        return {}
 
 
 class Eye(bsim.BioModule):
-    """Publishes a vision biosignal each STEP (toy example)."""
+    """Publishes a vision signal each step."""
 
-    def subscriptions(self):
-        return {bsim.BioWorldEvent.STEP}
+    def __init__(self):
+        self.min_dt = 0.1
+        self._outputs = {}
 
-    def on_event(self, event, payload, world):
-        # Emit a directed biosignal to connected modules only
-        world.publish_biosignal(self, topic="vision", payload={"photon": True, "t": payload.get("t")})
+    def outputs(self):
+        return {"vision"}
+
+    def advance_to(self, t: float) -> None:
+        self._outputs = {
+            "vision": bsim.BioSignal(source="eye", name="vision", value={"photon": True}, time=t)
+        }
+
+    def get_outputs(self):
+        return dict(self._outputs)
 
 
 class LGN(bsim.BioModule):
     """Receives Eye.vision and relays to thalamus channel."""
 
-    def on_event(self, event, payload, world):
-        pass  # no-op for global events in this demo
+    def __init__(self):
+        self.min_dt = 0.1
+        self._outputs = {}
 
-    def on_signal(self, topic, payload, source, world):
-        if topic == "vision":
-            # Relay to downstream consumers via a new topic
-            world.publish_biosignal(self, topic="thalamus", payload={"relay": payload})
+    def inputs(self):
+        return {"vision"}
+
+    def outputs(self):
+        return {"thalamus"}
+
+    def set_inputs(self, signals):
+        if "vision" in signals:
+            self._outputs = {
+                "thalamus": bsim.BioSignal(
+                    source="lgn", name="thalamus", value=signals["vision"].value, time=signals["vision"].time
+                )
+            }
+
+    def advance_to(self, t: float) -> None:
+        return
+
+    def get_outputs(self):
+        return dict(self._outputs)
 
 
 class SuperiorColliculus(bsim.BioModule):
     """Receives LGN.thalamus signals."""
 
-    def on_event(self, event, payload, world):
-        pass
+    def __init__(self):
+        self.min_dt = 0.1
 
-    def on_signal(self, topic, payload, source, world):
-        if topic == "thalamus":
-            print("[SC] received:", payload)
+    def inputs(self):
+        return {"thalamus"}
+
+    def set_inputs(self, signals):
+        if "thalamus" in signals:
+            print("[SC] received:", signals["thalamus"].value)
+
+    def advance_to(self, t: float) -> None:
+        return
+
+    def get_outputs(self):
+        return {}
 
 
 def main() -> None:
-    # Using a custom user-defined solver by subclassing bsim.Solver
-    world = bsim.BioWorld(solver=CustomSolver())
+    world = bsim.BioWorld()
     world.on(print_listener)
-    world.add_biomodule(StepLoggerModule())
-    result = world.simulate(steps=5, dt=0.1)
-    print("CustomSolver Result:", result)
+    world.add_biomodule("logger", StepLoggerModule())
+    world.run(duration=0.3, tick_dt=0.1)
 
-    # Using a ready-made solver provided by bsim
-    built_in_world = bsim.BioWorld(solver=bsim.FixedStepSolver())
-    built_in_world.on(print_listener)
-    built_in_world.add_biomodule(StepLoggerModule())
-    built_in_result = built_in_world.simulate(steps=3, dt=0.5)
-    print("FixedStepSolver Result:", built_in_result)
-
-    # Demonstrate module-to-module biosignal routing (Eye -> LGN -> SC)
-    bw = bsim.BioWorld(solver=bsim.FixedStepSolver())
+    print("--- Signal routing demo ---")
+    bw = bsim.BioWorld()
     eye = Eye()
     lgn = LGN()
     sc = SuperiorColliculus()
 
-    bw.add_biomodule(eye)
-    bw.add_biomodule(lgn)
-    bw.add_biomodule(sc)
-    bw.connect_biomodules(eye, topic="vision", dst=lgn)
-    bw.connect_biomodules(lgn, topic="thalamus", dst=sc)
-    bw.simulate(steps=2, dt=0.2)
+    bw.add_biomodule("eye", eye, priority=2)
+    bw.add_biomodule("lgn", lgn, priority=1)
+    bw.add_biomodule("sc", sc)
+    bw.connect("eye.vision", "lgn.vision")
+    bw.connect("lgn.thalamus", "sc.thalamus")
+    bw.run(duration=0.2, tick_dt=0.1)
 
 
 if __name__ == "__main__":

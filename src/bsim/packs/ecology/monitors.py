@@ -8,10 +8,11 @@ import base64
 from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from bsim import BioWorld, BioWorldEvent
+    from bsim import BioWorld
     from bsim.visuals import VisualSpec
 
 from bsim import BioModule
+from bsim.signals import BioSignal
 
 
 class PopulationMonitor(BioModule):
@@ -23,12 +24,10 @@ class PopulationMonitor(BioModule):
         max_points: Maximum data points per species (oldest dropped).
     """
 
-    def __init__(self, max_points: int = 10000) -> None:
+    def __init__(self, max_points: int = 10000, min_dt: float = 1.0) -> None:
+        self.min_dt = min_dt
         self.max_points = max_points
         self._data: Dict[str, List[Dict[str, float]]] = {}
-
-    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
-        return set()
 
     def inputs(self) -> Set[str]:
         return {"population_state"}
@@ -40,19 +39,13 @@ class PopulationMonitor(BioModule):
         """Reset collected data."""
         self._data = {}
 
-    def on_signal(
-        self,
-        topic: str,
-        payload: Dict[str, Any],
-        source: Any,
-        world: "BioWorld",
-    ) -> None:
-        if topic != "population_state":
+    def set_inputs(self, signals: Dict[str, BioSignal]) -> None:
+        signal = signals.get("population_state")
+        if signal is None or not isinstance(signal.value, dict):
             return
-
-        species = str(payload.get("species", "Unknown"))
-        count = int(payload.get("count", 0))
-        t = float(payload.get("t", 0.0))
+        species = str(signal.value.get("species", "Unknown"))
+        count = int(signal.value.get("count", 0))
+        t = float(signal.value.get("t", signal.time))
 
         if species not in self._data:
             self._data[species] = []
@@ -63,10 +56,11 @@ class PopulationMonitor(BioModule):
         if len(self._data[species]) > self.max_points:
             self._data[species] = self._data[species][-self.max_points:]
 
-    def on_event(
-        self, event: "BioWorldEvent", payload: Dict[str, Any], world: "BioWorld"
-    ) -> None:
-        pass
+    def advance_to(self, t: float) -> None:
+        return
+
+    def get_outputs(self) -> Dict[str, BioSignal]:
+        return {}
 
     def visualize(self) -> Optional["VisualSpec"]:
         """Generate combined population timeseries for all species."""
@@ -100,14 +94,12 @@ class EcologyMetrics(BioModule):
     - Extinction events
     """
 
-    def __init__(self) -> None:
+    def __init__(self, min_dt: float = 1.0) -> None:
+        self.min_dt = min_dt
         self._populations: Dict[str, List[int]] = {}
         self._extinctions: Dict[str, float] = {}  # species -> extinction time
         self._t_start: Optional[float] = None
         self._t_end: float = 0.0
-
-    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
-        return set()
 
     def inputs(self) -> Set[str]:
         return {"population_state"}
@@ -121,19 +113,13 @@ class EcologyMetrics(BioModule):
         self._t_start = None
         self._t_end = 0.0
 
-    def on_signal(
-        self,
-        topic: str,
-        payload: Dict[str, Any],
-        source: Any,
-        world: "BioWorld",
-    ) -> None:
-        if topic != "population_state":
+    def set_inputs(self, signals: Dict[str, BioSignal]) -> None:
+        signal = signals.get("population_state")
+        if signal is None or not isinstance(signal.value, dict):
             return
-
-        species = str(payload.get("species", "Unknown"))
-        count = int(payload.get("count", 0))
-        t = float(payload.get("t", 0.0))
+        species = str(signal.value.get("species", "Unknown"))
+        count = int(signal.value.get("count", 0))
+        t = float(signal.value.get("t", signal.time))
 
         if self._t_start is None:
             self._t_start = t
@@ -148,10 +134,11 @@ class EcologyMetrics(BioModule):
         if count == 0 and species not in self._extinctions:
             self._extinctions[species] = t
 
-    def on_event(
-        self, event: "BioWorldEvent", payload: Dict[str, Any], world: "BioWorld"
-    ) -> None:
-        pass
+    def advance_to(self, t: float) -> None:
+        return
+
+    def get_outputs(self) -> Dict[str, BioSignal]:
+        return {}
 
     def _compute_shannon_diversity(self) -> float:
         """Compute Shannon diversity index from final populations."""
@@ -265,7 +252,9 @@ class PhaseSpaceMonitor(BioModule):
         x_species: str = "Prey",
         y_species: str = "Predator",
         max_points: int = 5000,
+        min_dt: float = 1.0,
     ) -> None:
+        self.min_dt = min_dt
         self.x_species = x_species
         self.y_species = y_species
         self.max_points = max_points
@@ -275,10 +264,6 @@ class PhaseSpaceMonitor(BioModule):
         self._current_x: int = 0
         self._current_y: int = 0
         self._time: float = 0.0
-
-    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
-        from bsim import BioWorldEvent
-        return {BioWorldEvent.STEP}
 
     def inputs(self) -> Set[str]:
         return {"population_state"}
@@ -293,31 +278,19 @@ class PhaseSpaceMonitor(BioModule):
         self._current_y = 0
         self._time = 0.0
 
-    def on_signal(
-        self,
-        topic: str,
-        payload: Dict[str, Any],
-        source: Any,
-        world: "BioWorld",
-    ) -> None:
-        if topic != "population_state":
+    def set_inputs(self, signals: Dict[str, BioSignal]) -> None:
+        signal = signals.get("population_state")
+        if signal is None or not isinstance(signal.value, dict):
             return
-
-        species = str(payload.get("species", ""))
-        count = int(payload.get("count", 0))
+        species = str(signal.value.get("species", ""))
+        count = int(signal.value.get("count", 0))
 
         if species == self.x_species:
             self._current_x = count
         elif species == self.y_species:
             self._current_y = count
 
-    def on_event(
-        self, event: "BioWorldEvent", payload: Dict[str, Any], world: "BioWorld"
-    ) -> None:
-        from bsim import BioWorldEvent
-        if event != BioWorldEvent.STEP:
-            return
-
+    def advance_to(self, t: float) -> None:
         # Record current point
         self._x_values.append(self._current_x)
         self._y_values.append(self._current_y)
@@ -326,6 +299,9 @@ class PhaseSpaceMonitor(BioModule):
         if len(self._x_values) > self.max_points:
             self._x_values = self._x_values[-self.max_points:]
             self._y_values = self._y_values[-self.max_points:]
+
+    def get_outputs(self) -> Dict[str, BioSignal]:
+        return {}
 
     def visualize(self) -> Optional["VisualSpec"]:
         """Generate SVG phase space plot."""

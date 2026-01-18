@@ -39,7 +39,7 @@ from bsim.packs.neuro import (
 
 def setup_single_neuron_world() -> bsim.BioWorld:
     """Set up a simple single-neuron world for SimUI."""
-    world = bsim.BioWorld(solver=bsim.FixedStepSolver())
+    world = bsim.BioWorld()
 
     # Simple single neuron setup
     current_source = StepCurrent(I=10.0)
@@ -55,9 +55,9 @@ def setup_single_neuron_world() -> bsim.BioWorld:
     wb.add("state_mon", state_monitor)
     wb.add("metrics", metrics)
 
-    wb.connect("current.out.current", ["neuron.in.current"])
-    wb.connect("neuron.out.spikes", ["spike_mon.in.spikes", "metrics.in.spikes"])
-    wb.connect("neuron.out.state", ["state_mon.in.state"])
+    wb.connect("current.current", ["neuron.current"])
+    wb.connect("neuron.spikes", ["spike_mon.spikes", "metrics.spikes"])
+    wb.connect("neuron.state", ["state_mon.state"])
     wb.apply()
 
     return world
@@ -65,7 +65,7 @@ def setup_single_neuron_world() -> bsim.BioWorld:
 
 def setup_microcircuit_world() -> bsim.BioWorld:
     """Set up an E/I microcircuit world for SimUI."""
-    world = bsim.BioWorld(solver=bsim.FixedStepSolver())
+    world = bsim.BioWorld()
 
     n_exc, n_inh = 40, 10
     n_total = n_exc + n_inh
@@ -107,29 +107,29 @@ def setup_microcircuit_world() -> bsim.BioWorld:
     wb.add("state_mon", state_mon)
     wb.add("metrics", metrics)
 
-    wb.connect("poisson.out.spikes", ["syn_ext_e.in.spikes"])
-    wb.connect("syn_ext_e.out.current", ["exc.in.current"])
+    wb.connect("poisson.spikes", ["syn_ext_e.spikes"])
+    wb.connect("syn_ext_e.current", ["exc.current"])
 
-    wb.connect("exc.out.spikes", [
-        "syn_ee.in.spikes",
-        "syn_ei.in.spikes",
-        "spike_mon_e.in.spikes",
-        "rate_mon.in.spikes",
-        "metrics.in.spikes",
+    wb.connect("exc.spikes", [
+        "syn_ee.spikes",
+        "syn_ei.spikes",
+        "spike_mon_e.spikes",
+        "rate_mon.spikes",
+        "metrics.spikes",
     ])
-    wb.connect("exc.out.state", ["state_mon.in.state"])
+    wb.connect("exc.state", ["state_mon.state"])
 
-    wb.connect("inh.out.spikes", [
-        "syn_ie.in.spikes",
-        "syn_ii.in.spikes",
-        "spike_mon_i.in.spikes",
-        "rate_mon.in.spikes",
+    wb.connect("inh.spikes", [
+        "syn_ie.spikes",
+        "syn_ii.spikes",
+        "spike_mon_i.spikes",
+        "rate_mon.spikes",
     ])
 
-    wb.connect("syn_ee.out.current", ["exc.in.current"])
-    wb.connect("syn_ie.out.current", ["exc.in.current"])
-    wb.connect("syn_ei.out.current", ["inh.in.current"])
-    wb.connect("syn_ii.out.current", ["inh.in.current"])
+    wb.connect("syn_ee.current", ["exc.current"])
+    wb.connect("syn_ie.current", ["exc.current"])
+    wb.connect("syn_ei.current", ["inh.current"])
+    wb.connect("syn_ii.current", ["inh.current"])
 
     wb.apply()
 
@@ -218,8 +218,8 @@ This simulation models a small cortical microcircuit with **excitatory (E)** and
 ### Parameters to Explore
 
 Try adjusting:
-- **Steps**: More steps = longer simulation time
-- **dt**: Smaller dt = more accurate but slower
+- **Duration**: Longer duration = longer simulation time
+- **tick_dt**: Smaller tick_dt = more frequent UI updates
 """
 
 
@@ -235,8 +235,8 @@ def main() -> None:
         help="Demo mode: 'single' for single neuron, 'circuit' for E/I microcircuit",
     )
     parser.add_argument("--port", type=int, default=8765, help="SimUI server port")
-    parser.add_argument("--steps", type=int, default=3000, help="Simulation steps")
-    parser.add_argument("--dt", type=float, default=0.0001, help="Time step (seconds)")
+    parser.add_argument("--duration", type=float, default=0.3, help="Simulation duration (seconds)")
+    parser.add_argument("--tick", type=float, default=0.0001, help="Tick interval (seconds)")
     args = parser.parse_args()
 
     print("Neuro Pack - SimUI Demo")
@@ -253,8 +253,6 @@ def main() -> None:
         description = MICROCIRCUIT_DESCRIPTION
         title = "E/I Microcircuit Simulation"
 
-    print(f"Modules: {len(world._biomodule_listeners)}")
-    print(f"Connections: {len(world.describe_wiring())}")
     print(f"\nStarting SimUI server on port {args.port}...")
     print(f"Open http://localhost:{args.port}/ui/ in your browser.")
     print("Press Ctrl+C to stop.\n")
@@ -269,8 +267,8 @@ def main() -> None:
             title=title,
             description=description,
             controls=[
-                Number("steps", args.steps, label="Steps", minimum=100, maximum=50000, step=100),
-                Number("dt", args.dt, label="dt (s)", minimum=0.00001, maximum=0.01, step=0.00001),
+                Number("duration", args.duration, label="Duration (s)", minimum=0.01, maximum=10.0, step=0.01),
+                Number("tick_dt", args.tick, label="tick_dt (s)", minimum=0.00001, maximum=0.01, step=0.00001),
                 Button("Run"),
             ],
             outputs=[

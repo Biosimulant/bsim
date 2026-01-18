@@ -25,9 +25,9 @@ bsim is building the **aggregation platform for biological simulation** - a unif
 │                           │                                 │
 │  ┌─────────────────────────────────────────────────────────┐│
 │  │              Execution Layer (bsim core)               ││
-│  │  • Adapters (SBML, NeuroML, CellML, custom)           ││
+│  │  • Biomodule packages (SBML, NeuroML, CellML, custom) ││
 │  │  • Orchestration & wiring                             ││
-│  │  • Solvers                                             ││
+│  │  • BioWorld orchestration                              ││
 │  └─────────────────────────────────────────────────────────┘│
 │                           │                                 │
 │  ┌─────────────────────────────────────────────────────────┐│
@@ -85,7 +85,7 @@ Understanding this distinction is critical to our strategy:
 
 ### Standards Coverage
 
-| Standard | Domain | Best tool | Python API | Adapter difficulty |
+| Standard | Domain | Best tool | Python API | Integration difficulty |
 |----------|--------|-----------|------------|-------------------|
 | **SBML** | Biochemical networks | tellurium/libroadrunner | Excellent | Easy |
 | **CellML** | Mathematical models | OpenCOR | Limited | Medium |
@@ -103,11 +103,11 @@ Understanding this distinction is critical to our strategy:
 
 ---
 
-## Adapter-First Architecture
+## Biomodule-First Integration
 
 ### Core Principle
 
-We don't reimplement simulators - we wrap them:
+We don't reimplement simulators - biomodule packages wrap them and expose the standard BioModule contract:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -116,10 +116,10 @@ We don't reimplement simulators - we wrap them:
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  bsim Adapter Layer                                         │
+│  bsim Biomodule Packages                                    │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
 │  │ tellurium   │  │ pyNeuroML   │  │  Mesa       │         │
-│  │ adapter     │  │ adapter     │  │  adapter    │         │
+│  │ biomodule   │  │ biomodule   │  │  biomodule  │         │
 │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘         │
 └─────────┼────────────────┼────────────────┼─────────────────┘
           │                │                │
@@ -131,69 +131,34 @@ We don't reimplement simulators - we wrap them:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Adapter Contract
+### Biomodule Contract
 
-```python
-class SimulatorAdapter(Protocol):
-    """Standard interface all adapters implement."""
+Packages implement the standard BioModule runtime (`setup/reset/advance_to/...`) and expose ports via `get_outputs()` / `set_inputs()`.
 
-    def setup(self, config: dict) -> None:
-        """Initialize the wrapped simulator."""
-        ...
+### Scheduling + Synchronization
 
-    def advance_to(self, t: float) -> None:
-        """Advance simulation to time t."""
-        ...
-
-    def get_outputs(self) -> dict[str, BioSignal]:
-        """Return current state as BioSignals."""
-        ...
-
-    def set_inputs(self, signals: dict[str, BioSignal]) -> None:
-        """Inject external inputs."""
-        ...
-
-    def get_state(self) -> dict:
-        """Return serializable state for checkpointing."""
-        ...
-```
-
-### Time Synchronization
-
-Each simulator has its own notion of time. We need a time broker:
-
-```python
-class TimeBroker:
-    def advance_to(self, t_target: float):
-        for adapter in self.adapters:
-            adapter.advance_to(t_target)  # Each does own substeps
-            adapter.sync_outputs()        # Collect at sync point
-```
-
+BioWorld schedules each biomodule using `min_dt` and optional `next_due_time(t)`. Modules can substep internally to match simulator constraints.
 ### The Killer Demo
 
 ```yaml
 # Neuron controlling metabolism - impossible without composition
 modules:
   glucose_metabolism:
-    adapter: tellurium
-    sbml: BioModels/MODEL1234.xml
-    expose: [glucose, ATP]
+    class: bsim_sbml.GlucoseModel
+    args:
+      sbml_path: BioModels/MODEL1234.xml
 
   sensory_neuron:
-    adapter: pyneuroml
-    neuroml: glucose_sensor.nml
+    class: bsim_neuroml.SensorNeuron
+    args:
+      neuroml_path: glucose_sensor.nml
 
   motor_output:
-    type: bsim.packs.neuro.IzhikevichPopulation
+    class: bsim.packs.neuro.IzhikevichPopulation
 
 wiring:
-  - source: glucose_metabolism.glucose
-    target: sensory_neuron.input_current
-    transform: concentration_to_current
-
-  - source: sensory_neuron.spikes
-    target: motor_output.input
+  - { from: glucose_metabolism.glucose, to: [sensory_neuron.input_current] }
+  - { from: sensory_neuron.spikes, to: [motor_output.input] }
 ```
 
 **This is what no existing tool does well.**
@@ -278,7 +243,7 @@ Once we have:
 | **Data/content** | High | Indexed models + user content + run history |
 | **Switching costs** | Medium | Saved projects, team workflows |
 | **Brand** | Possible | "The place for bio simulations" |
-| **Tech** | Low-Medium | Adapters aren't magic, but tedious to replicate |
+| **Tech** | Low-Medium | Integration packages aren't magic, but tedious to replicate |
 
 **Strongest moat:** Aggregated model repository + user-generated compositions. Hard to replicate once large.
 
@@ -298,7 +263,7 @@ Once we have:
 
 | Risk | Impact | Mitigation |
 |------|--------|------------|
-| **Adapters are fragile** | High | Start with one (tellurium), nail it before expanding |
+| **Integration packages are fragile** | High | Start with one (tellurium), nail it before expanding |
 | **Compute costs eat margin** | High | Aggressive caching, time limits, spot instances |
 | **Version hell (upstream changes)** | Medium | Pin versions, maintain compatibility shims |
 | **Performance overhead** | Medium | Be explicit about niche (prototyping, not HPC) |
@@ -314,7 +279,7 @@ Once we have:
 
 1. Can't get first 100 users → no validation, no funding
 2. Compute economics don't work → burn money
-3. Adapters too brittle → bad UX, users churn
+3. Integration packages too brittle -> bad UX, users churn
 4. Team falls apart → startup reality
 
 ---
@@ -362,12 +327,12 @@ Once we have:
 ### "What's the unfair advantage?"
 
 - First mover on multi-paradigm composition
-- Adapter architecture (leverage, don't compete)
+- Biomodule architecture (leverage, don't compete)
 - Focus on UX in a space with terrible UX
 
 ### "What are the risks?"
 
-- Execution risk (adapters are hard)
+- Execution risk (integration packages are hard)
 - Adoption risk (researchers are conservative)
 - Compute cost risk (simulations are expensive)
 
@@ -382,7 +347,7 @@ Once we have:
 | University pilot courses | 5 |
 | Weekly active users | 100 |
 | Models indexed | 1000+ (BioModels) |
-| Working adapters | 1 (tellurium) |
+| Working integration packages | 1 (tellurium) |
 
 ### Phase 2 (Months 7-12)
 
@@ -391,7 +356,7 @@ Once we have:
 | Weekly active users | 500 |
 | Paying users | 50 |
 | MRR | $2,000 |
-| Working adapters | 2 (+ pyNeuroML) |
+| Working integration packages | 2 (+ pyNeuroML) |
 
 ### Phase 3 (Months 13-18)
 
@@ -411,30 +376,30 @@ Once we have:
 | Aspect | Brian2 | bsim |
 |--------|--------|------|
 | Focus | Spiking neural networks | Multi-paradigm composition |
-| Approach | Equation-based, code generation | Module wiring, adapters |
+| Approach | Equation-based, code generation | Module wiring, biomodule packages |
 | UI | None (library) | SimUI + web platform |
-| Standards | NeuroML export | Adapter-first (wrap Brian2) |
-| Relationship | Potential adapter target | Orchestration layer |
+| Standards | NeuroML export | Biomodule-first (wrap Brian2 in packages) |
+| Relationship | Potential integration target | Orchestration layer |
 
 ### Mesa vs bsim
 
 | Aspect | Mesa | bsim |
 |--------|------|------|
 | Focus | Agent-based modeling | Multi-paradigm composition |
-| Approach | Agents, schedulers, grids | Module wiring, adapters |
+| Approach | Agents, schedulers, grids | Module wiring, biomodule packages |
 | UI | Browser visualization | SimUI + web platform |
-| Standards | None | Adapter-first |
-| Relationship | Potential adapter target | Orchestration layer |
+| Standards | None | Biomodule-first |
+| Relationship | Potential integration target | Orchestration layer |
 
 ### tellurium vs bsim
 
 | Aspect | tellurium | bsim |
 |--------|-----------|------|
 | Focus | SBML simulation | Multi-paradigm composition |
-| Approach | Direct SBML execution | Wrap tellurium as adapter |
+| Approach | Direct SBML execution | Wrap tellurium in biomodule packages |
 | UI | Jupyter integration | SimUI + web platform |
-| Standards | SBML native | Adapter-first |
-| Relationship | First adapter target | Orchestration layer |
+| Standards | SBML native | Biomodule-first |
+| Relationship | First integration target | Orchestration layer |
 
 ---
 

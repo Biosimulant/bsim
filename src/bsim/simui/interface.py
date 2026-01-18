@@ -14,7 +14,7 @@ from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from ..world import BioWorld, BioWorldEvent
+from ..world import BioWorld, WorldEvent
 from .runner import SimulationManager
 from .editor_api import build_editor_router
 
@@ -77,24 +77,10 @@ class Interface:
         self._description = description
         self._config_path: Path | None = Path(config_path) if config_path else None
         # Base controls
-        base_controls = [Number("steps", 100), Number("dt", 0.1), Button("Run")]
+        base_controls = [Number("duration", 10.0), Number("tick_dt", 0.1), Button("Run")]
         self._controls = list(controls or base_controls)
         self._outputs = list(outputs or [EventLog(), VisualsPanel()])
         self._mount_path = mount_path.rstrip("/") or "/ui"
-
-        # Dynamic solver-derived controls (e.g., temperature) added if not already provided.
-        try:
-            initial_state = getattr(world.solver, "_initial_state", {}) or {}
-            if isinstance(initial_state, dict) and "temperature" in initial_state:
-                if not any(isinstance(c, Number) and c.name == "temperature" for c in self._controls):
-                    try:
-                        default_temp = float(initial_state["temperature"])
-                    except Exception:
-                        default_temp = 0.0
-                    # Insert after dt
-                    self._controls.insert(2, Number("temperature", default_temp, label="temperature", step=0.1))
-        except Exception:
-            logger.exception("Failed to derive dynamic controls from solver initial state")
 
         # Event buffer (timestamped + monotonic id). Bounded to avoid unbounded memory growth.
         event_limit = 200
@@ -161,21 +147,22 @@ class Interface:
             pass
 
     # ---- Internal: event listener and buffers ---------------------------
-    def _listener(self, event: BioWorldEvent, payload: Dict[str, Any]) -> None:
+    def _listener(self, event: WorldEvent, payload: Dict[str, Any]) -> None:
         self._event_seq += 1
+        event_name = event.value if hasattr(event, "value") else str(event)
         record = {
             "id": self._event_seq,
             "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "event": event.name,
+            "event": event_name,
             "payload": payload,
         }
         with self._events_lock:
             self._events.append(record)
-            if event == BioWorldEvent.STEP:
+            if event == WorldEvent.TICK:
                 self._last_step = payload
 
         # Push to SSE subscribers
-        if event == BioWorldEvent.STEP:
+        if event == WorldEvent.TICK:
             # On STEP, send a tick with status, visuals, and the event
             self._broadcast_sse({
                 "type": "tick",
@@ -268,7 +255,7 @@ class Interface:
         @router.get("/api/spec")
         def spec() -> Dict[str, Any]:
             try:
-                modules = [m.__class__.__name__ for m in self._world._biomodule_listeners.keys()]  # type: ignore[attr-defined]
+                modules = list(self._world.module_names)  # type: ignore[attr-defined]
             except Exception:
                 modules = []
             controls = [self._ctrl_to_spec(c) for c in self._controls]
@@ -286,30 +273,20 @@ class Interface:
 
         @router.post("/api/run")
         def run(params: Dict[str, Any]) -> JSONResponse:
-            steps = params.get("steps")
-            dt = params.get("dt")
-            if not isinstance(steps, int) or steps <= 0:
-                raise HTTPException(status_code=400, detail="'steps' must be a positive int")
+            duration = params.get("duration")
+            tick_dt = params.get("tick_dt")
             try:
-                dt_f = float(dt)
+                duration_f = float(duration)
             except Exception:
-                raise HTTPException(status_code=400, detail="'dt' must be a number")
-
-            # Optional: pass supported run overrides to the solver (avoid mutating private solver state).
+                raise HTTPException(status_code=400, detail="'duration' must be a number")
+            if duration_f <= 0:
+                raise HTTPException(status_code=400, detail="'duration' must be positive")
             try:
-                overrides: Dict[str, Any] = {}
-                if "temperature" in params:
-                    overrides["temperature"] = params.get("temperature")
-                if overrides:
-                    self._world.solver = self._world.solver.with_overrides(overrides)  # type: ignore[assignment]
-                # Log unknown extra numeric params (non-fatal)
-                for k, v in params.items():
-                    if k not in {"steps", "dt", "temperature"}:
-                        # numeric? log once
-                        if isinstance(v, (int, float)):
-                            logger.warning("Unknown numeric run parameter ignored: %s=%r", k, v)
+                tick_f = float(tick_dt) if tick_dt is not None else None
             except Exception:
-                logger.exception("Error processing run parameter overrides")
+                raise HTTPException(status_code=400, detail="'tick_dt' must be a number")
+            if tick_f is not None and tick_f <= 0:
+                raise HTTPException(status_code=400, detail="'tick_dt' must be positive")
 
             def _on_start() -> None:
                 # Clear backend event buffers for a fresh run view (before the worker thread starts emitting).
@@ -318,7 +295,7 @@ class Interface:
                     self._event_seq = 0
                 self._last_step = None
 
-            started = self._runner.start_run(steps=steps, dt=dt_f, on_start=_on_start)
+            started = self._runner.start_run(duration=duration_f, tick_dt=tick_f, on_start=_on_start)
             if not started:
                 return JSONResponse({"ok": False, "reason": "already_running"}, status_code=409)
             return JSONResponse({"ok": True}, status_code=202)
@@ -332,7 +309,7 @@ class Interface:
             return {
                 "status": self._runner.status(),
                 "last_step": self._last_step,
-                "modules": [m.__class__.__name__ for m in self._world._biomodule_listeners.keys()],  # type: ignore[attr-defined]
+                "modules": list(self._world.module_names),  # type: ignore[attr-defined]
             }
 
         @router.post("/api/pause")

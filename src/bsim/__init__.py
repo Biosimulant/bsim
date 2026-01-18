@@ -8,16 +8,9 @@ from types import ModuleType
 from typing import TYPE_CHECKING
 
 from .__about__ import __version__
-from .world import BioWorld, BioWorldEvent
-from .solver import (
-    Solver,
-    FixedStepSolver,
-    FixedStepBioSolver,
-    Process,
-    TemperatureParams,
-    ScalarRateParams,
-)
+from .world import BioWorld, WorldEvent
 from .modules import BioModule
+from .signals import BioSignal, SignalMetadata
 from .visuals import VisualSpec, validate_visual_spec, normalize_visuals
 from .wiring import (
     WiringBuilder,
@@ -33,17 +26,13 @@ if TYPE_CHECKING:  # pragma: no cover
 __all__ = [
     "__version__",
     "BioWorld",
-    "BioWorldEvent",
-    "Solver",
-    "FixedStepSolver",
-    "FixedStepBioSolver",
-    "Process",
-    "TemperatureParams",
-    "ScalarRateParams",
+    "WorldEvent",
     "VisualSpec",
     "validate_visual_spec",
     "normalize_visuals",
     "BioModule",
+    "BioSignal",
+    "SignalMetadata",
     "WiringBuilder",
     "build_from_spec",
     "load_wiring",

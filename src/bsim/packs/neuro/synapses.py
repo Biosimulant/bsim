@@ -8,9 +8,10 @@ import random
 from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from bsim import BioWorld, BioWorldEvent
+    from bsim import BioWorld
 
 from bsim import BioModule
+from bsim.signals import BioSignal, SignalMetadata
 
 
 class ExpSynapseCurrent(BioModule):
@@ -42,7 +43,9 @@ class ExpSynapseCurrent(BioModule):
         tau: float = 0.01,
         seed: Optional[int] = None,
         delay_steps: int = 0,
+        min_dt: float = 0.001,
     ) -> None:
+        self.min_dt = min_dt
         self.n_pre = n_pre
         self.n_post = n_post
         self.p_connect = p_connect
@@ -65,6 +68,7 @@ class ExpSynapseCurrent(BioModule):
 
         # History for visualization
         self._current_history: List[List[float]] = []  # [[t, mean_I], ...]
+        self._outputs: Dict[str, BioSignal] = {}
 
     def _build_connectivity(self) -> None:
         """Build random sparse connectivity matrix."""
@@ -76,10 +80,6 @@ class ExpSynapseCurrent(BioModule):
                     targets.append(post)
             if targets:
                 self._adjacency[pre] = targets
-
-    def subscriptions(self) -> Optional[Set["BioWorldEvent"]]:
-        from bsim import BioWorldEvent
-        return {BioWorldEvent.STEP}
 
     def inputs(self) -> Set[str]:
         return {"spikes"}
@@ -97,18 +97,11 @@ class ExpSynapseCurrent(BioModule):
         self._rng = random.Random(self.seed)
         self._build_connectivity()
 
-    def on_signal(
-        self,
-        topic: str,
-        payload: Dict[str, Any],
-        source: Any,
-        world: "BioWorld",
-    ) -> None:
-        """Handle incoming spike signals."""
-        if topic != "spikes":
+    def set_inputs(self, signals: Dict[str, BioSignal]) -> None:
+        signal = signals.get("spikes")
+        if signal is None:
             return
-
-        spike_ids = payload.get("ids", [])
+        spike_ids = signal.value or []
         if not spike_ids:
             return
 
@@ -126,14 +119,7 @@ class ExpSynapseCurrent(BioModule):
             for post_idx in targets:
                 self._I[post_idx] += self.weight
 
-    def on_event(
-        self, event: "BioWorldEvent", payload: Dict[str, Any], world: "BioWorld"
-    ) -> None:
-        from bsim import BioWorldEvent
-        if event != BioWorldEvent.STEP:
-            return
-
-        t = float(payload.get("t", self._time))
+    def advance_to(self, t: float) -> None:
         dt = t - self._time if t > self._time else self._last_dt
         self._last_dt = dt
         self._time = t
@@ -154,8 +140,19 @@ class ExpSynapseCurrent(BioModule):
         mean_I = sum(self._I) / self.n_post if self.n_post > 0 else 0.0
         self._current_history.append([t, mean_I])
 
-        # Emit current to target population
-        world.publish_biosignal(self, topic="current", payload={"t": t, "I": list(self._I)})
+        source_name = getattr(self, "_world_name", self.__class__.__name__)
+        self._outputs = {
+            "current": BioSignal(
+                source=source_name,
+                name="current",
+                value=list(self._I),
+                time=t,
+                metadata=SignalMetadata(units="nA", description="Synaptic current", kind="state"),
+            )
+        }
+
+    def get_outputs(self) -> Dict[str, BioSignal]:
+        return dict(self._outputs)
 
     def visualize(self) -> Optional[Dict[str, Any]]:
         """Return a timeseries visualization of mean synaptic current."""

@@ -1,6 +1,6 @@
 """My custom bsim pack.
 
-This pack provides custom modules and solvers for bsim simulations.
+This pack provides custom modules for bsim simulations.
 
 Usage in YAML configs:
     modules:
@@ -8,21 +8,13 @@ Usage in YAML configs:
         class: my_pack.Counter
         args:
           name: "my_counter"
-
-    meta:
-      solver:
-        class: my_pack.VariableStepSolver
-        args:
-          max_dt: 0.05
+        min_dt: 0.1
 """
-from .modules import Counter, Accumulator, SignalLogger
-from .solvers import VariableStepSolver
+from .modules import Counter, Accumulator
 
 __version__ = "0.1.0"
 
 __all__ = [
     "Counter",
     "Accumulator",
-    "SignalLogger",
-    "VariableStepSolver",
 ]

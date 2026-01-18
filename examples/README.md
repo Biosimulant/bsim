@@ -6,8 +6,8 @@ Quick index
 
 Core usage
 - `basic_usage.py`: Prints the installed package version to verify imports.
-- `world_simulation.py`: Shows DI with a solver, listeners, and biosignal routing.
-- `wiring_builder_demo.py`: Demonstrates `WiringBuilder` (including port renaming).
+- `world_simulation.py`: Shows BioWorld orchestration and biosignal routing.
+- `wiring_builder_demo.py`: Demonstrates `WiringBuilder` (including port validation).
 - `visuals_demo.py`: Minimal example of module-provided visuals + `world.collect_visuals()`.
 
 SimUI
@@ -17,15 +17,11 @@ SimUI
 - `neuro_simui_demo.py`: Neuro SimUI demo for the neuro pack.
 
 Domain packs (headless demos)
-- `fixed_step_bio_solver.py`: `FixedStepBioSolver` built-in processes + custom process example.
 - `neuro_single_neuron_demo.py`: Single-neuron Izhikevich demo + monitors/metrics.
 - `neuro_microcircuit_demo.py`: E/I microcircuit demo + monitors/metrics.
 
 Configs
 - `configs/`: Example YAML/TOML configs runnable via the CLI (`python -m bsim ...`).
-
-Adapters (TimeBroker)
-- `adapters/test_tellurium_adapter.py`: End-to-end Tellurium adapter test (requires `bsim[tellurium]`).
 
 Pack template
 - `pack-template/`: Template for creating your own module pack (includes its own tests/configs).

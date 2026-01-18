@@ -7,7 +7,6 @@ Welcome to the bsim documentation. This guide explains the core concepts, APIs, 
 - API:
   - BioWorld and BioWorldEvent
   - BioModule
-  - Solver and FixedStepSolver
   - WiringBuilder and YAML/TOML loaders
 - Configuration: how to write wiring files
 - Example: Eye → LGN → SC pipeline

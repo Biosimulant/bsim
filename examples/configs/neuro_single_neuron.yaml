@@ -1,5 +1,5 @@
 # Single Neuron Simulation Config
-# Run with: python -c "import bsim; w = bsim.BioWorld(solver=bsim.FixedStepSolver()); w.load_wiring('examples/configs/neuro_single_neuron.yaml'); w.simulate(steps=5000, dt=0.0001); print(w.collect_visuals())"
+# Run with: python -c "import bsim; w = bsim.BioWorld(); bsim.load_wiring(w, 'examples/configs/neuro_single_neuron.yaml'); w.run(duration=0.5, tick_dt=0.0001); print(w.collect_visuals())"
 
 modules:
   current:
@@ -32,11 +32,11 @@ modules:
       n_neurons: 1
 
 wiring:
-  - from: current.out.current
-    to: [neuron.in.current]
+  - from: current.current
+    to: [neuron.current]
 
-  - from: neuron.out.spikes
-    to: [spike_mon.in.spikes, metrics.in.spikes]
+  - from: neuron.spikes
+    to: [spike_mon.spikes, metrics.spikes]
 
-  - from: neuron.out.state
-    to: [state_mon.in.state]
+  - from: neuron.state
+    to: [state_mon.state]

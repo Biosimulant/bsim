@@ -3,27 +3,21 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from importlib import import_module
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 from .modules import BioModule
 from .world import BioWorld
 
-def _parse_ref(ref: str) -> Tuple[str, Optional[str], str]:
-    """Parse references like "eye.visual_stream" or "eye.out.visual_stream".
 
-    Returns (name, direction, port). Direction is optional ("in"/"out" or None).
+def _parse_ref(ref: str) -> Tuple[str, str]:
+    """Parse references like "eye.visual_stream".
+
+    Returns (name, port).
     """
-    parts = ref.split(".")
-    if len(parts) < 2:
-        raise ValueError(f"Invalid reference '{ref}', expected 'name.topic' form")
-    name = parts[0]
-    if len(parts) >= 3 and parts[1] in {"in", "out"}:
-        direction = parts[1]
-        port = parts[2]
-    else:
-        direction = None
-        port = parts[-1]
-    return name, direction, port
+    parts = ref.split(".", 1)
+    if len(parts) != 2:
+        raise ValueError(f"Invalid reference '{ref}', expected 'name.port' form")
+    return parts[0], parts[1]
 
 
 @dataclass
@@ -32,11 +26,11 @@ class WiringBuilder:
     registry: Dict[str, BioModule] = field(default_factory=dict)
     _pending_connections: List[Tuple[str, List[str]]] = field(default_factory=list)
 
-    def add(self, name: str, module: BioModule) -> "WiringBuilder":
+    def add(self, name: str, module: BioModule, *, min_dt: Optional[float] = None, priority: int = 0) -> "WiringBuilder":
         if name in self.registry and self.registry[name] is not module:
             raise ValueError(f"Module name already registered: {name}")
         self.registry[name] = module
-        self.world.add_biomodule(module)
+        self.world.add_biomodule(name, module, min_dt=min_dt, priority=priority)
         return self
 
     def connect(self, src_ref: str, dst_refs: Iterable[str]) -> "WiringBuilder":
@@ -45,19 +39,19 @@ class WiringBuilder:
 
     def apply(self) -> None:
         for src_ref, dst_refs in self._pending_connections:
-            src_name, _src_dir, topic = _parse_ref(src_ref)
+            src_name, src_port = _parse_ref(src_ref)
             src_mod = self.registry.get(src_name)
             if src_mod is None:
                 raise KeyError(f"connect {src_ref}: unknown module name '{src_name}'")
             # Validate source port if declared
             declared_out = set(src_mod.outputs())
-            if declared_out and topic not in declared_out:
+            if declared_out and src_port not in declared_out:
                 raise ValueError(
-                    f"connect {src_ref}: module '{src_name}' has no output port '{topic}'. "
+                    f"connect {src_ref}: module '{src_name}' has no output port '{src_port}'. "
                     f"Declared outputs: {sorted(declared_out)}"
                 )
             for dst_ref in dst_refs:
-                dst_name, _dst_dir, dst_port = _parse_ref(dst_ref)
+                dst_name, dst_port = _parse_ref(dst_ref)
                 dst_mod = self.registry.get(dst_name)
                 if dst_mod is None:
                     raise KeyError(f"connect {src_ref} -> {dst_ref}: unknown module '{dst_name}'")
@@ -67,7 +61,7 @@ class WiringBuilder:
                         f"connect {src_ref} -> {dst_ref}: module '{dst_name}' has no input port '{dst_port}'. "
                         f"Declared inputs: {sorted(declared_in)}"
                     )
-                self.world.connect_biomodules(src_mod, topic, dst_mod, dst_topic=dst_port)
+                self.world.connect(f"{src_name}.{src_port}", f"{dst_name}.{dst_port}")
         self._pending_connections.clear()
 
 
@@ -85,7 +79,7 @@ def build_from_spec(world: BioWorld, spec: Mapping[str, Any]) -> WiringBuilder:
     Spec format (keys optional):
     - modules: mapping of name -> one of:
         - dotted path string (e.g., "bsim.packs.neuro.IzhikevichPopulation")
-        - {class: dotted, args: {...}} for native BioModule classes
+        - {class: dotted, args: {...}, min_dt: float, priority: int}
     - wiring: list of {from: str, to: [str, ...]}
     """
     builder = WiringBuilder(world)
@@ -93,36 +87,29 @@ def build_from_spec(world: BioWorld, spec: Mapping[str, Any]) -> WiringBuilder:
     modules_section = spec.get("modules") if isinstance(spec, Mapping) else None
     if isinstance(modules_section, Mapping):
         for name, entry in modules_section.items():
+            min_dt = None
+            priority = 0
             if isinstance(entry, str):
-                # Simple class path string
                 cls = _import_from_string(entry)
                 module = cls()
             elif isinstance(entry, Mapping):
-                # Check if it's an adapter or native module
-                if "adapter" in entry:
-                    raise ValueError(
-                        "Adapters are not supported in the BioWorld wiring runtime. "
-                        "Use `bsim.adapters.TimeBroker` to run adapters."
-                    )
-                elif "class" in entry:
-                    # Native BioModule class
-                    cls_path = entry.get("class")
-                    if not isinstance(cls_path, str):
-                        raise ValueError(f"Invalid class for module '{name}'")
-                    cls = _import_from_string(cls_path)
-                    kwargs = entry.get("args") or {}
-                    if not isinstance(kwargs, Mapping):
-                        raise ValueError(f"Invalid args for module '{name}'")
-                    module = cls(**dict(kwargs))
-                else:
-                    raise ValueError(
-                        f"Module '{name}' must have either 'class' or 'adapter' key"
-                    )
+                cls_path = entry.get("class")
+                if not isinstance(cls_path, str):
+                    raise ValueError(f"Invalid class for module '{name}'")
+                cls = _import_from_string(cls_path)
+                kwargs = entry.get("args") or {}
+                if not isinstance(kwargs, Mapping):
+                    raise ValueError(f"Invalid args for module '{name}'")
+                module = cls(**dict(kwargs))
+                if "min_dt" in entry:
+                    min_dt = float(entry["min_dt"])
+                if "priority" in entry:
+                    priority = int(entry["priority"])
             else:
                 raise ValueError(f"Invalid module entry for '{name}'")
             if not isinstance(module, BioModule):
                 raise TypeError(f"Module '{name}' is not a BioModule: {type(module)!r}")
-            builder.add(name, module)
+            builder.add(name, module, min_dt=min_dt, priority=priority)
 
     wiring_section = spec.get("wiring") if isinstance(spec, Mapping) else None
     if isinstance(wiring_section, list):

@@ -15,32 +15,33 @@ import bsim
 
 
 def main() -> None:
-    world = bsim.BioWorld(solver=bsim.FixedStepSolver())
+    world = bsim.BioWorld()
 
-    # Add a toy module exposing visuals
     class TS(bsim.BioModule):
         def __init__(self):
+            self.min_dt = 0.1
             self._points = []
 
         def reset(self):
-            # Clear history for a fresh run
             self._points = []
 
-        def on_event(self, event, payload, world):
-            if event == bsim.BioWorldEvent.STEP:
-                self._points.append([payload["t"], payload.get("i", len(self._points))])
+        def advance_to(self, t: float) -> None:
+            self._points.append([t, len(self._points)])
+
+        def get_outputs(self):
+            return {}
 
         def visualize(self):
             return {"render": "timeseries", "data": {"series": [{"name": "i", "points": self._points}]}}
 
-    world.add_biomodule(TS())
+    world.add_biomodule("ts", TS())
 
     from bsim.simui import Interface, Number, Button, EventLog, VisualsPanel
 
     ui = Interface(
         world,
         title="BioSim UI",
-        controls=[Number("steps", 50, label="Steps", minimum=1), Number("dt", 0.1, label="dt", step=0.1), Button("Run")],
+        controls=[Number("duration", 5, label="Duration", minimum=0.1), Number("tick_dt", 0.1, label="tick_dt", step=0.1), Button("Run")],
         outputs=[EventLog(limit=200), VisualsPanel(refresh="auto", interval_ms=800)],
     )
     ui.launch(port=7861)

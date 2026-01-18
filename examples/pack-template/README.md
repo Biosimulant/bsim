@@ -18,27 +18,22 @@ pip install bsim-my-pack
 
 ```python
 import bsim
-from my_pack import Counter, VariableStepSolver
+from my_pack import Counter
 
-world = bsim.BioWorld(solver=VariableStepSolver(max_dt=0.05))
-world.add_biomodule(Counter(name="my_counter"))
-world.simulate(steps=100, dt=0.1)
+world = bsim.BioWorld()
+world.add_biomodule("counter", Counter(name="my_counter", min_dt=0.1))
+world.run(duration=10.0, tick_dt=0.1)
 ```
 
 ### In YAML Configs
 
 ```yaml
-meta:
-  solver:
-    class: my_pack.VariableStepSolver
-    args:
-      max_dt: 0.05
-
 modules:
   counter:
     class: my_pack.Counter
     args:
       name: "my_counter"
+    min_dt: 0.1
 ```
 
 Run with:
@@ -54,13 +49,6 @@ python -m bsim config.yaml --simui
 |--------|-------------|--------|---------|
 | `Counter` | Counts simulation steps | - | `count` |
 | `Accumulator` | Accumulates values | `value` | `total` |
-| `SignalLogger` | Logs signals for debugging | any | - |
-
-### Solvers
-
-| Solver | Description | Parameters |
-|--------|-------------|------------|
-| `VariableStepSolver` | Configurable dt bounds | `min_dt`, `max_dt` |
 
 ## Development
 
@@ -70,9 +58,6 @@ pip install -e ".[dev]"
 
 # Run tests
 pytest
-
-# Run example
-python -m bsim examples/demo.yaml --simui
 ```
 
 ## Creating Your Own Pack
@@ -81,9 +66,8 @@ python -m bsim examples/demo.yaml --simui
 2. Rename `my_pack` to your package name
 3. Update `pyproject.toml` with your details
 4. Implement your modules in `modules.py`
-5. Implement custom solvers in `solvers.py` (optional)
-6. Add example configs in `examples/`
-7. Publish to PyPI
+5. Add example configs in `examples/`
+6. Publish to PyPI
 
 ## License
 

@@ -11,12 +11,8 @@ def fastapi_client():
     return FastAPI, TestClient
 
 
-def _make_world(bsim, with_temp=False):
-    if with_temp:
-        solver = bsim.FixedStepBioSolver(temperature=bsim.TemperatureParams(initial=12.5))
-    else:
-        solver = bsim.FixedStepSolver()
-    return bsim.BioWorld(solver=solver)
+def _make_world(bsim):
+    return bsim.BioWorld()
 
 
 def test_spec_version_and_modules(bsim, fastapi_client):
@@ -24,13 +20,27 @@ def test_spec_version_and_modules(bsim, fastapi_client):
     world = _make_world(bsim)
 
     class M1(bsim.BioModule):
-        pass
+        def __init__(self):
+            self.min_dt = 0.1
+
+        def advance_to(self, t: float) -> None:
+            return
+
+        def get_outputs(self):
+            return {}
 
     class M2(bsim.BioModule):
-        pass
+        def __init__(self):
+            self.min_dt = 0.1
 
-    world.add_biomodule(M1())
-    world.add_biomodule(M2())
+        def advance_to(self, t: float) -> None:
+            return
+
+        def get_outputs(self):
+            return {}
+
+    world.add_biomodule("m1", M1())
+    world.add_biomodule("m2", M2())
 
     ui = bsim.simui.Interface(world)
     app = FastAPI()
@@ -40,18 +50,28 @@ def test_spec_version_and_modules(bsim, fastapi_client):
     assert r.status_code == 200
     data = r.json()
     assert data["version"] == "2"
-    assert set(data.get("modules", [])) == {"M1", "M2"}
+    assert set(data.get("modules", [])) == {"m1", "m2"}
 
 
-def test_temperature_control_detection_and_override(bsim, fastapi_client):
+def test_run_endpoint_accepts_duration(bsim, fastapi_client):
     FastAPI, TestClient = fastapi_client
-    world = _make_world(bsim, with_temp=True)
+    world = _make_world(bsim)
+
+    class M1(bsim.BioModule):
+        def __init__(self):
+            self.min_dt = 0.1
+
+        def advance_to(self, t: float) -> None:
+            return
+
+        def get_outputs(self):
+            return {}
+
+    world.add_biomodule("m1", M1())
+
     ui = bsim.simui.Interface(world)
     app = FastAPI()
     ui.mount(app, "/ui")
     client = TestClient(app)
-    spec = client.get("/ui/api/spec").json()
-    ctl_names = [c.get("name") for c in spec.get("controls", []) if c.get("type") == "number"]
-    assert "temperature" in ctl_names
-    r = client.post("/ui/api/run", json={"steps": 2, "dt": 0.5, "temperature": 33.3})
+    r = client.post("/ui/api/run", json={"duration": 0.2, "tick_dt": 0.1})
     assert r.status_code in (202, 409)

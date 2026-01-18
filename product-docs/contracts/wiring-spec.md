@@ -23,25 +23,24 @@ Either:
 Or object:
 - `class: str` dotted import path OR registry name
 - `args: dict` keyword args for constructor (optional)
+- `min_dt: float` minimum scheduling interval (optional)
+- `priority: int` scheduler priority for tie-breaking (optional)
 
 Example (YAML):
 ```yaml
 version: "1"
 modules:
-  eye: { class: "examples.wiring_builder_demo.Eye" }
+  eye: { class: "examples.wiring_builder_demo.Eye", min_dt: 0.01 }
   lgn: { class: "examples.wiring_builder_demo.LGN" }
 wiring:
-  - { from: "eye.out.visual_stream", to: ["lgn.in.retina"] }
+  - { from: "eye.visual_stream", to: ["lgn.retina"] }
 ```
 
 ### connectionSpec
 
 Keys:
-- `from: str` source reference: `"name.port"` or `"name.out.port"`
-- `to: list[str]` destination references: `"name.port"` or `"name.in.port"`
-
-Parsing rules:
-- `in`/`out` tokens are optional and ignored semantically; they are for readability.
+- `from: str` source reference: `"name.port"`
+- `to: list[str]` destination references: `"name.port"`
 
 ## Validation rules
 

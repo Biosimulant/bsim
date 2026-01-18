@@ -1,47 +1,38 @@
-# API: BioWorld and BioWorldEvent
+# API: BioWorld and WorldEvent
 
-BioWorld orchestrates simulation steps, emits lifecycle events, and routes directed biosignals between modules.
+BioWorld orchestrates runnable biomodules, emits lifecycle events, and routes biosignals between modules.
 
 Class signature
 ```python
-@dataclass
 class BioWorld:
-    solver: bsim.Solver
-    listeners: list[Listener] = []
-    # internal
-    _biomodule_listeners: dict[BioModule, Listener]
-    _signal_routes: dict[tuple[BioModule, str], list[BioModule]]
-    _loaded_emitted: bool
+    def __init__(self, *, time_unit: str = "seconds") -> None: ...
 ```
 
-Typical values during a run
-- `solver` → `FixedStepSolver()`
-- `listeners` → `[<function print_listener>, <module_listener>, ...]`
-- `_biomodule_listeners` → `{ Eye(): <listener>, LGN(): <listener> }`
-- `_signal_routes` → `{ (Eye(), 'visual_stream'): [LGN()], (LGN(), 'thalamus'): [SC()] }`
-- After first `simulate`: `_loaded_emitted` → `True`
-
 Lifecycle
-- Emits: `LOADED` (once), `BEFORE_SIMULATION`, `STEP`×N, `AFTER_SIMULATION`.
-- Exceptions in listeners/handlers are logged and ignored.
+- Emits: `STARTED`, `TICK`, `FINISHED`.
+- May also emit: `PAUSED`, `RESUMED`, `STOPPED`, `ERROR`.
+- Exceptions in listeners are logged and do not stop the world.
 
 Key methods
 - `on(listener)` / `off(listener)`
-- `add_biomodule(module)` / `remove_biomodule(module)`
-- `connect_biomodules(src, topic, dst)` / `disconnect_biomodules(src, topic, dst)`
-- `publish_biosignal(src, topic, payload)`
-- `simulate(steps: int, dt: float) -> dict`: returns `{"steps": int, "time": float}` for `FixedStepSolver`.
-- `load_wiring(path: str)` → YAML/TOML loader
-- `describe_wiring() -> list[tuple[str, str, str]]`
+- `add_biomodule(name, module, min_dt=None, priority=0)`
+- `connect("src.port", "dst.port")`
+- `setup(config=None)`
+- `run(duration: float, tick_dt: Optional[float] = None)`
+- `request_pause()` / `request_resume()` / `request_stop()`
+- `current_time()`
+- `module_names`
+- `get_outputs(name)`
+- `collect_visuals()`
 
 Example
 ```python
-world = bsim.BioWorld(solver=bsim.FixedStepSolver())
-world.on(lambda ev, p: print(ev.name, p))
+world = bsim.BioWorld()
+world.on(lambda ev, p: print(ev.value, p))
+
 eye, lgn = Eye(), LGN()
-world.add_biomodule(eye)
-world.add_biomodule(lgn)
-world.connect_biomodules(eye, 'visual_stream', lgn)
-print(world.describe_wiring())
-print(world.simulate(steps=2, dt=0.1))
+world.add_biomodule("eye", eye)
+world.add_biomodule("lgn", lgn)
+world.connect("eye.visual_stream", "lgn.retina")
+world.run(duration=0.2, tick_dt=0.1)
 ```

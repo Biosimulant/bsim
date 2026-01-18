@@ -1,35 +1,49 @@
 # API: BioModule
 
-BioModule encapsulates behavior with local state. It can:
-- Listen to global world events via `on_event` and optional `subscriptions()`.
-- Exchange directed messages via `on_signal` and `publish_biosignal` on the world.
-- Optionally declare connection ports for validation via `inputs()` and `outputs()`.
+BioModule encapsulates behavior with local state. It:
+- Implements a runnable contract (`setup/reset/advance_to/...`).
+- Receives inputs via `set_inputs(...)` and emits outputs via `get_outputs()`.
+- Optionally declares connection ports for validation via `inputs()` and `outputs()`.
 
 Signature (selected)
 ```python
 class BioModule:
-    def subscriptions(self) -> set[BioWorldEvent]: ...  # empty → all
-    def on_event(self, event, payload: dict, world: BioWorld) -> None: ...
-    def on_signal(self, topic: str, payload: dict, source: BioModule, world: BioWorld) -> None: ...
-    def inputs(self) -> set[str]: ...      # optional validation
-    def outputs(self) -> set[str]: ...     # optional validation
+    min_dt: float  # required (seconds by default)
+
+    def setup(self, world: BioWorld) -> None: ...
+    def reset(self) -> None: ...
+    def advance_to(self, t: float) -> None: ...
+    def set_inputs(self, inputs: dict[str, BioSignal]) -> None: ...
+    def get_outputs(self) -> dict[str, BioSignal]: ...
+    def get_state(self) -> dict[str, Any]: ...
+    def next_due_time(self, t: float) -> Optional[float]: ...
+    def inputs(self) -> set[str]: ...
+    def outputs(self) -> set[str]: ...
 ```
 
 Example with local state
 ```python
 class Eye(bsim.BioModule):
+    min_dt = 0.01
+
     def __init__(self):
         self.photons_seen = 0
-    def subscriptions(self):
-        return {bsim.BioWorldEvent.STEP}
+
     def outputs(self):
         return {"visual_stream"}
-    def on_event(self, event, payload, world):
+
+    def advance_to(self, t: float) -> None:
         self.photons_seen += 1
-        world.publish_biosignal(self, "visual_stream", {"t": payload.get("t")})
+
+    def get_outputs(self):
+        return {
+            "visual_stream": bsim.BioSignal(
+                value={"t": t, "count": self.photons_seen},
+                metadata=bsim.SignalMetadata(units="1"),
+            )
+        }
 ```
 
 Typical values at runtime
-- `event` → `BioWorldEvent.STEP`
-- `payload` (from FixedStepSolver) → `{ 'i': 0, 't': 0.1 }`
-- `self.photons_seen` after two steps → `2`
+- `t` -> current world time (float)
+- `self.photons_seen` after two ticks -> `2`

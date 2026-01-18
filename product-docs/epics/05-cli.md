@@ -13,7 +13,7 @@ Provide a first-class CLI workflow to execute YAML/TOML wiring specs, matching d
 - A console script exists: `bsim-run`.
 - Supports:
   - `--wiring PATH` (yaml/toml)
-  - `--steps N`, `--dt FLOAT`
+  - `--duration FLOAT`, `--tick-dt FLOAT`
   - `--safe` (default) vs `--allow-imports` for dotted imports (if supported)
   - `--print-wiring` and `--json` output mode
 - Exit codes:

@@ -11,7 +11,7 @@ Last updated: 2026-01-12
 ## Layers
 
 1. Unit tests (default)
-   - Core: world events, solver behavior, wiring parsing/validation, visuals normalization.
+   - Core: world events, scheduling behavior, wiring parsing/validation, visuals normalization.
 2. Contract tests
    - SimUI API response shapes and version fields.
 3. CLI tests

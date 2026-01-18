@@ -7,30 +7,28 @@ from __future__ import annotations
 
 import math
 import random
-import time
 
 import bsim
 
 
 class SineWave(bsim.BioModule):
     def __init__(self):
+        self.min_dt = 0.1
         self.points = []
 
     def reset(self):
-        # Clear accumulated points between runs
         self.points = []
 
-    def on_event(self, event, payload, world):
-        if event == bsim.BioWorldEvent.STEP:
-            t = payload.get("t", 0.0)
-            self.points.append([t, math.sin(t)])
-            #    self.points = self.points[-500:]
+    def advance_to(self, t: float) -> None:
+        self.points.append([t, math.sin(t)])
+
+    def get_outputs(self):
+        return {}
 
     def _decimate(self, pts, max_points=500):
         n = len(pts)
         if n <= max_points:
             return pts
-        # Min-max envelope per bucket to preserve shape
         buckets = max(1, max_points // 2)
         bucket_size = n / buckets
         out = []
@@ -46,7 +44,6 @@ class SineWave(bsim.BioModule):
                 continue
             min_p = min(chunk, key=lambda p: p[1])
             max_p = max(chunk, key=lambda p: p[1])
-            # append in x order, avoid dupes
             if min_p[0] <= max_p[0]:
                 if not out or out[-1] != min_p:
                     out.append(min_p)
@@ -70,49 +67,63 @@ class SineWave(bsim.BioModule):
 
 class BarCounts(bsim.BioModule):
     def __init__(self):
+        self.min_dt = 0.1
         self.values = {"A": 1, "B": 2, "C": 3}
         self._i = 0
 
     def reset(self):
-        # Reset counters to initial values
         self.values = {"A": 1, "B": 2, "C": 3}
         self._i = 0
 
-    def on_event(self, event, payload, world):
-        if event == bsim.BioWorldEvent.STEP:
-            self._i += 1
-            key = random.choice(list(self.values.keys()))
-            self.values[key] += random.randint(0, 2)
+    def advance_to(self, t: float) -> None:
+        self._i += 1
+        key = random.choice(list(self.values.keys()))
+        self.values[key] += random.randint(0, 2)
+
+    def get_outputs(self):
+        return {}
 
     def visualize(self):
-        items = [
-            {"label": k, "value": v} for k, v in self.values.items()
-        ]
+        items = [{"label": k, "value": v} for k, v in self.values.items()]
         return {"render": "bar", "data": {"items": items}}
 
 
 class TableSnapshot(bsim.BioModule):
     def __init__(self, bar_mod: BarCounts):
+        self.min_dt = 0.1
         self.bar_mod = bar_mod
         self.snap = []
+        self._i = 0
 
     def reset(self):
-        # Drop snapshot history between runs
         self.snap = []
+        self._i = 0
 
-    def on_event(self, event, payload, world):
-        if event == bsim.BioWorldEvent.STEP and payload.get("i", 0) % 10 == 0:
+    def advance_to(self, t: float) -> None:
+        self._i += 1
+        if self._i % 10 == 0:
             total = sum(self.bar_mod.values.values())
-            self.snap.append({"step": payload.get("i"), "total": total})
+            self.snap.append({"step": self._i, "total": total})
             self.snap = self.snap[-100:]
 
+    def get_outputs(self):
+        return {}
+
     def visualize(self):
-        # Keep the last 4000 snapshots for display
         items = self.snap[-4000:]
         return {"render": "table", "data": {"items": items}}
 
 
 class SmallGraph(bsim.BioModule):
+    def __init__(self):
+        self.min_dt = 0.5
+
+    def advance_to(self, t: float) -> None:
+        return
+
+    def get_outputs(self):
+        return {}
+
     def visualize(self):
         return {
             "render": "graph",
@@ -127,20 +138,19 @@ class SmallGraph(bsim.BioModule):
 
 
 def main():
-    world = bsim.BioWorld(solver=bsim.FixedStepSolver())
+    world = bsim.BioWorld()
     bar = BarCounts()
-    world.add_biomodule(SineWave())
-    world.add_biomodule(bar)
-    world.add_biomodule(TableSnapshot(bar))
-    world.add_biomodule(SmallGraph())
+    world.add_biomodule("sine", SineWave())
+    world.add_biomodule("bar", bar)
+    world.add_biomodule("table", TableSnapshot(bar))
+    world.add_biomodule("graph", SmallGraph())
 
-    # Use large defaults to run ~20s on typical machines (no sleeps)
     ui = bsim.simui.Interface(
         world,
         title="Multi-Module Demo",
         controls=[
-            bsim.simui.Number("steps", 7_500_000),
-            bsim.simui.Number("dt", 0.001),
+            bsim.simui.Number("duration", 10.0),
+            bsim.simui.Number("tick_dt", 0.1),
             bsim.simui.Button("Run"),
         ],
     )

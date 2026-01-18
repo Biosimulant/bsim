@@ -1,13 +1,18 @@
 modules:
   eye:
     class: examples.wiring_builder_demo.Eye
+    min_dt: 0.1
   lgn:
     class: examples.wiring_builder_demo.LGN
+    min_dt: 0.1
   sc:
     class: examples.wiring_builder_demo.SC
+    min_dt: 0.1
 
 wiring:
-  - from: eye.out.visual_stream
-    to: [lgn.in.retina]
-  - from: lgn.out.thalamus
-    to: [sc.in.vision]
+  - from: eye.visual_stream
+    to:
+      - lgn.retina
+  - from: lgn.thalamus
+    to:
+      - sc.vision

@@ -6,14 +6,14 @@ Related: `tasks/contracts/plugin-contract.md`
 
 ## Goal
 
-Enable third-party packages to provide modules/solvers (and optionally renderers) discovered at runtime with clear versioning and compatibility.
+Enable third-party packages to provide modules (and optionally renderers) discovered at runtime with clear versioning and compatibility.
 
 ## Acceptance criteria
 
 - A plugin discovery mechanism exists (Python entry points recommended).
 - A registry API exists for:
   - listing available plugins,
-  - resolving module/solver factories by name,
+  - resolving module factories by name,
   - validating plugin compatibility (version checks).
 - Wiring spec can reference registry names (preferred) instead of dotted imports.
 - Docs include “how to build a plugin package”.

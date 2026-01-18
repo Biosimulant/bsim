@@ -12,36 +12,74 @@ import bsim
 
 
 class Eye(bsim.BioModule):
-    def subscriptions(self):
-        return {bsim.BioWorldEvent.STEP}
+    def __init__(self):
+        self.min_dt = 0.1
+        self._outputs = {}
 
-    def on_event(self, event, payload, world):
-        world.publish_biosignal(self, topic="visual_stream", payload={"t": payload.get("t")})
+    def outputs(self):
+        return {"visual_stream"}
+
+    def advance_to(self, t: float) -> None:
+        self._outputs = {
+            "visual_stream": bsim.BioSignal(source="eye", name="visual_stream", value=t, time=t)
+        }
+
+    def get_outputs(self):
+        return dict(self._outputs)
 
 
 class LGN(bsim.BioModule):
-    def on_signal(self, topic, payload, source, world):
-        # Connected as eye.visual_stream -> lgn.retina
-        if topic == "retina":
-            world.publish_biosignal(self, topic="thalamus", payload=payload)
+    def __init__(self):
+        self.min_dt = 0.1
+        self._outputs = {}
+
+    def inputs(self):
+        return {"retina"}
+
+    def outputs(self):
+        return {"thalamus"}
+
+    def set_inputs(self, signals):
+        if "retina" in signals:
+            sig = signals["retina"]
+            self._outputs = {
+                "thalamus": bsim.BioSignal(source="lgn", name="thalamus", value=sig.value, time=sig.time)
+            }
+
+    def advance_to(self, t: float) -> None:
+        return
+
+    def get_outputs(self):
+        return dict(self._outputs)
 
 
 class SC(bsim.BioModule):
-    def on_signal(self, topic, payload, source, world):
-        # Connected as lgn.thalamus -> sc.vision
-        if topic == "vision":
-            print("[SC] vision:", payload)
+    def __init__(self):
+        self.min_dt = 0.1
+
+    def inputs(self):
+        return {"vision"}
+
+    def set_inputs(self, signals):
+        if "vision" in signals:
+            print("[SC] vision:", signals["vision"].value)
+
+    def advance_to(self, t: float) -> None:
+        return
+
+    def get_outputs(self):
+        return {}
 
 
 def main() -> None:
-    world = bsim.BioWorld(solver=bsim.FixedStepSolver())
+    world = bsim.BioWorld()
     eye, lgn, sc = Eye(), LGN(), SC()
 
     wb = bsim.WiringBuilder(world)
-    wb.add("eye", eye).add("lgn", lgn).add("sc", sc)
+    wb.add("eye", eye, priority=2).add("lgn", lgn, priority=1).add("sc", sc)
     wb.connect("eye.visual_stream", ["lgn.retina", "sc.vision"]).apply()
 
-    world.simulate(steps=2, dt=0.1)
+    world.run(duration=0.2, tick_dt=0.1)
 
 
 if __name__ == "__main__":

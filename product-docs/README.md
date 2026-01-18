@@ -56,14 +56,13 @@ When working on an epic:
 | [06-packaging-release](epics/06-packaging-release.md) | Complete | PyPI packaging |
 | [07-domain-modules](epics/07-domain-modules.md) | Complete | Neuro + Ecology packs |
 | [08-plugin-sdk](epics/08-plugin-sdk.md) | In Progress | Plugin discovery, registry |
-| [09-standards-interop](epics/09-standards-interop.md) | Planned | Adapter-first architecture |
+| [09-standards-interop](epics/09-standards-interop.md) | Planned | Biomodule-based interoperability |
 | [10-web-platform](epics/10-web-platform.md) | Planned | Full platform build |
 | [11-observability](epics/11-observability-performance.md) | Partial | Logging, metrics |
 | [12-docs-examples](epics/12-docs-examples.md) | In Progress | Documentation |
 | [13-repo-hygiene](epics/13-repo-hygiene.md) | Complete | CI, linting, structure |
 
 ### Technical Contracts
-- [solver-contract.md](contracts/solver-contract.md) - Solver interface spec
 - [wiring-spec.md](contracts/wiring-spec.md) - Wiring configuration format
 - [visualspec.md](contracts/visualspec.md) - Visualization JSON contract
 - [simui-api.md](contracts/simui-api.md) - SimUI REST/SSE API
@@ -87,5 +86,5 @@ When working on an epic:
 - `contracts/*` - API specifications
 
 ### For Domain Experts
-- `epics/09-standards-interop.md` - How we integrate SBML/NeuroML/CellML
+- `epics/09-standards-interop.md` - How we integrate SBML/NeuroML/CellML via biomodule packages
 - `epics/07-domain-modules.md` - Neuro and ecology packs

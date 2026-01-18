@@ -69,7 +69,7 @@ def run_microcircuit(
         dt: Time step in seconds
 
     Returns:
-        Dict with simulation result and collected visuals
+        Dict with collected visuals
     """
     n_total = n_exc + n_inh
     print(f"\n{'=' * 60}")
@@ -78,7 +78,7 @@ def run_microcircuit(
     print("=" * 60)
 
     # Create world
-    world = bsim.BioWorld(solver=bsim.FixedStepSolver())
+    world = bsim.BioWorld()
 
     # Input: Poisson spike train driving excitatory neurons
     poisson_input = PoissonInput(n=n_exc, rate_hz=poisson_rate, seed=seed)
@@ -169,43 +169,45 @@ def run_microcircuit(
     wb.add("metrics_i", metrics_i)
 
     # External drive -> syn_ext_e -> E
-    wb.connect("poisson.out.spikes", ["syn_ext_e.in.spikes"])
-    wb.connect("syn_ext_e.out.current", ["exc.in.current"])
+    wb.connect("poisson.spikes", ["syn_ext_e.spikes"])
+    wb.connect("syn_ext_e.current", ["exc.current"])
 
     # E -> synapses
-    wb.connect("exc.out.spikes", [
-        "syn_ee.in.spikes",
-        "syn_ei.in.spikes",
-        "spike_mon_e.in.spikes",
-        "rate_mon.in.spikes",
-        "metrics_e.in.spikes",
+    wb.connect("exc.spikes", [
+        "syn_ee.spikes",
+        "syn_ei.spikes",
+        "spike_mon_e.spikes",
+        "rate_mon.spikes",
+        "metrics_e.spikes",
     ])
-    wb.connect("exc.out.state", ["state_mon.in.state"])
+    wb.connect("exc.state", ["state_mon.state"])
 
     # I -> synapses
-    wb.connect("inh.out.spikes", [
-        "syn_ie.in.spikes",
-        "syn_ii.in.spikes",
-        "spike_mon_i.in.spikes",
-        "rate_mon.in.spikes",
-        "metrics_i.in.spikes",
+    wb.connect("inh.spikes", [
+        "syn_ie.spikes",
+        "syn_ii.spikes",
+        "spike_mon_i.spikes",
+        "rate_mon.spikes",
+        "metrics_i.spikes",
     ])
 
     # Synaptic currents -> populations
-    wb.connect("syn_ee.out.current", ["exc.in.current"])
-    wb.connect("syn_ie.out.current", ["exc.in.current"])
-    wb.connect("syn_ei.out.current", ["inh.in.current"])
-    wb.connect("syn_ii.out.current", ["inh.in.current"])
+    wb.connect("syn_ee.current", ["exc.current"])
+    wb.connect("syn_ie.current", ["exc.current"])
+    wb.connect("syn_ei.current", ["inh.current"])
+    wb.connect("syn_ii.current", ["inh.current"])
 
     wb.apply()
 
-    print(f"Modules added: {len(world._biomodule_listeners)}")
-    print(f"Connections: {len(world.describe_wiring())}")
+    try:
+        print(f"Modules added: {len(world.module_names)}")
+    except Exception:
+        pass
 
     # Simulate
     steps = int(duration_s / dt)
-    result = world.simulate(steps=steps, dt=dt)
-    print(f"Simulation complete: {result}")
+    world.run(duration=steps * dt, tick_dt=dt)
+    print("Simulation complete.")
 
     # Collect visuals
     visuals = world.collect_visuals()
@@ -223,7 +225,7 @@ def run_microcircuit(
                 print(f"  {row[0]}: {row[1]}")
             break
 
-    return {"result": result, "visuals": visuals}
+    return {"visuals": visuals}
 
 
 def main() -> None:
