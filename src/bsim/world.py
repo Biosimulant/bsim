@@ -188,6 +188,10 @@ class BioWorld:
         if duration <= 0:
             return
 
+        # Floating point time accumulation can produce values like 0.30000000000000004
+        # which should still be treated as "at" the requested end_time.
+        eps = 1e-12
+
         end_time = self._current_time + duration
         next_tick_time = self._current_time if tick_dt is None else self._current_time + tick_dt
 
@@ -206,7 +210,7 @@ class BioWorld:
                     raise SimulationStop()
 
                 due_time, _prio, _seq, name = heapq.heappop(self._queue)
-                if due_time > end_time:
+                if due_time - end_time > eps:
                     # Not due in this run; requeue and finish
                     heapq.heappush(self._queue, (due_time, _prio, _seq, name))
                     self._current_time = end_time
@@ -236,7 +240,7 @@ class BioWorld:
                 if tick_dt is None:
                     self._emit(WorldEvent.TICK, {"t": self._current_time, "module": name})
                 else:
-                    while next_tick_time <= self._current_time:
+                    while next_tick_time <= self._current_time + eps:
                         self._emit(WorldEvent.TICK, {"t": next_tick_time})
                         next_tick_time += tick_dt
 

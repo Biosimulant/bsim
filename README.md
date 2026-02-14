@@ -28,6 +28,14 @@ Provide a small, stable composition layer for simulations: wire reusable compone
 
 ## Installation
 
+Preferred (pinned GitHub ref):
+
+```console
+pip install "bsim @ git+https://github.com/<org>/bsim.git@<ref>"
+```
+
+Alternative (package index):
+
 ```console
 pip install bsim
 ```
@@ -40,6 +48,10 @@ pip install bsim
 pip install -e .
 python examples/basic_usage.py
 ```
+
+For advanced curated demos (neuro/ecology), wiring configs, and model-pack templates, see the companion repo:
+
+- https://github.com/Biosimulant/biomodels
 
 ### Quick Start: BioWorld
 

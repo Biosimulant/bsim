@@ -1,5 +1,10 @@
 # Repository Guidelines
 
+## Shared Context
+- This repo is the core `bsim` Python library used by the platform.
+- The `bsim-platform` monorepo vendors this library in `bsim-platform/B-Simulant/` (git subtree). If you change public APIs here, plan to sync those changes into the platform repo.
+- The `biosimulant-landing-page` repo is a separate marketing site and does not depend on this code.
+
 ## Project Structure & Module Organization
 - Source code: `src/bsim/`
   - Core: `BioWorld`, `WorldEvent`, `BioModule`, `BioSignal`

@@ -51,7 +51,10 @@ def test_collect_visuals_with_modules(bsim):
         def visualize(self):
             return {
                 "render": "graph",
-                "data": {"nodes": [{"id": "a"}, {"id": "b"], "edges": [{"source": "a", "target": "b"}]},
+                "data": {
+                    "nodes": [{"id": "a"}, {"id": "b"}],
+                    "edges": [{"source": "a", "target": "b"}],
+                },
             }
 
     world.add_biomodule("ts", TS())

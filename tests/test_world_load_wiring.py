@@ -1,7 +1,25 @@
-from pathlib import Path
-
-
-def test_world_load_wiring_example_file(bsim):
+def test_world_load_wiring_toml(tmp_path, bsim):
     world = bsim.BioWorld()
-    bsim.load_wiring(world, str(Path("examples/configs/brain.toml")))
+    path = tmp_path / "wiring.toml"
+    path.write_text(
+        "\n".join(
+            [
+                'version = "1"',
+                "",
+                "[modules.eye]",
+                'class = "examples.wiring_builder_demo.Eye"',
+                "min_dt = 0.01",
+                "",
+                "[modules.lgn]",
+                'class = "examples.wiring_builder_demo.LGN"',
+                "",
+                "[[wiring]]",
+                'from = "eye.visual_stream"',
+                'to = ["lgn.retina"]',
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    bsim.load_wiring(world, path)
     world.run(duration=0.1, tick_dt=0.1)

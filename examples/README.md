@@ -13,18 +13,17 @@ Core usage
 SimUI
 - `ui_demo.py`: Minimal SimUI demo (requires UI extras).
 - `multi_module_ui_demo.py`: Multi-module visuals demo in SimUI (large defaults).
-- `ecology_simui_demo.py`: Ecology SimUI demo (predator-prey + three-species; can load a YAML config).
-- `neuro_simui_demo.py`: Neuro SimUI demo for the neuro pack.
 
-Domain packs (headless demos)
-- `neuro_single_neuron_demo.py`: Single-neuron Izhikevich demo + monitors/metrics.
-- `neuro_microcircuit_demo.py`: E/I microcircuit demo + monitors/metrics.
+Advanced models, spaces, and domain demos
+-----------------------------------------
 
-Configs
-- `configs/`: Example YAML/TOML configs runnable via the CLI (`python -m bsim ...`).
+The heavier neuroscience/ecology demos, wiring configs, and pack template were moved to the companion public repo:
 
-Pack template
-- `pack-template/`: Template for creating your own module pack (includes its own tests/configs).
+- https://github.com/Biosimulant/biomodels
+
+Moved content includes:
+- `models/` and `spaces/` (with `model.yaml` / `space.yaml`)
+- `pack-template/` (now `biomodels/templates/model-pack/`)
 
 How to run
 ----------
@@ -34,13 +33,12 @@ Option A: Editable install (recommended during development)
 1. Create/activate a virtualenv.
 2. Install the project in editable mode: `pip install -e '.[dev]'`
 3. Run an example: `python examples/world_simulation.py`
-4. Run a config via the CLI: `python -m bsim examples/configs/ecology_predator_prey.yaml`
 
 Option B: Without installing
 
 - Run with the source path on `PYTHONPATH` so Python can find the `src` layout, e.g.:
   - `PYTHONPATH=src python examples/world_simulation.py`
-  - `PYTHONPATH=src python -m bsim examples/configs/neuro_single_neuron.yaml`
+  - `PYTHONPATH=src python -m bsim <path-to-wiring.yaml>`
 
 SimUI notes
 -----------

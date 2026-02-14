@@ -7,11 +7,9 @@ Last updated: 2026-01-13
 
 Build a web platform that lets users browse, run, combine, and share biological models from any major standard through a unified interface.
 
-## Strategic Context
+## Product Context
 
-See `STRATEGY.md` for full business context.
-
-**Vision:** "Hugging Face for biological simulations" - the place where all biology models live, run, and connect.
+This epic describes technical implementation for the web platform surface of `bio-sim`.
 
 ## Platform Architecture
 
@@ -72,7 +70,7 @@ See `STRATEGY.md` for full business context.
 - [ ] Default parameters pre-filled
 - [ ] Progress indicator during execution
 - [ ] Results displayed inline (charts, tables)
-- [ ] Execution time limit (free tier: 60s, pro: 300s)
+- [ ] Execution time limits configurable by deployment policy
 
 **Technical:**
 - Job queue for async execution
@@ -360,7 +358,7 @@ async def sync_biomodels():
 ### V2 (Month 9)
 - [ ] Visual composition editor
 - [ ] Cross-standard wiring
-- [ ] Freemium pricing live
+- [ ] Usage policy controls finalized
 - [ ] Team features
 
 ## Security Considerations
@@ -410,7 +408,7 @@ async def sync_biomodels():
 1. Visual wiring editor
 2. BioWorld scheduling integration
 3. Composition storage
-4. Freemium pricing
+4. Resource policy controls
 5. Team features (basic)
 
 ## Dependencies

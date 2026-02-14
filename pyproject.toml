@@ -22,7 +22,9 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = []
+dependencies = [
+  "numpy>=1.26",
+]
 
 [project.urls]
 Documentation = "https://github.com/Demi/bsim#readme"
@@ -89,4 +91,19 @@ include = [
 ]
 exclude = [
   "src/bsim/simui/_frontend/**",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bsim"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/bsim/**",
+  "tests/**",
+  "docs/**",
+  "examples/**",
+  "scripts/**",
+  "README.md",
+  "LICENSE.txt",
+  "pyproject.toml",
 ]

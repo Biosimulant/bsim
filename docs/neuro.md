@@ -33,19 +33,30 @@ from bsim.packs.neuro import (
 
 ### Running Examples
 
-**Single neuron demo:**
+The heavier end-to-end demos and wiring configs live in the companion repo `biomodels`:
+
+- https://github.com/Biosimulant/biomodels
+
+Clone it and run examples from that repo:
+
 ```bash
-python examples/neuro_single_neuron_demo.py
+git clone https://github.com/Biosimulant/biomodels.git
+cd biomodels
 ```
 
-**E/I microcircuit demo:**
+**Single neuron space (local wiring-spec runner):**
 ```bash
-python examples/neuro_microcircuit_demo.py
+python -m bsim spaces/neuro-single-neuron/wiring.yaml
 ```
 
-**SimUI interactive demo:**
+**E/I microcircuit space (local wiring-spec runner):**
 ```bash
-python examples/neuro_simui_demo.py
+python -m bsim spaces/neuro-microcircuit/wiring.yaml
+```
+
+**Local SimUI (optional):**
+```bash
+python spaces/neuro-microcircuit/simui_local.py
 # Then open http://localhost:8765
 ```
 
@@ -55,7 +66,7 @@ python examples/neuro_simui_demo.py
 python -c "
 import bsim
 w = bsim.BioWorld()
-bsim.load_wiring(w, 'examples/configs/neuro_single_neuron.yaml')
+bsim.load_wiring(w, '<path-to-neuro_single_neuron.yaml>')
 w.run(duration=0.5, tick_dt=0.0001)
 print('Simulation complete')
 for v in w.collect_visuals():
@@ -65,7 +76,7 @@ for v in w.collect_visuals():
 python -c "
 import bsim
 w = bsim.BioWorld()
-bsim.load_wiring(w, 'examples/configs/neuro_microcircuit.toml')
+bsim.load_wiring(w, '<path-to-neuro_microcircuit.toml>')
 w.run(duration=0.3, tick_dt=0.0001)
 print([v['module'] for v in w.collect_visuals()])"
 ```
@@ -388,7 +399,7 @@ visuals = world.collect_visuals()
 
 Balanced excitation/inhibition with Poisson drive.
 
-See `examples/neuro_microcircuit_demo.py` for a complete implementation.
+See `biomodels/spaces/neuro-microcircuit/space.yaml` for the composed space manifest.
 
 Key observations:
 - **Balanced E/I**: Asynchronous irregular (AI) spiking
@@ -399,21 +410,23 @@ Key observations:
 
 The neuro pack supports YAML and TOML wiring configs:
 
-**examples/configs/neuro_single_neuron.yaml**
-**examples/configs/neuro_single_neuron.toml**
-**examples/configs/neuro_microcircuit.yaml**
-**examples/configs/neuro_microcircuit.toml**
+Example wiring specs are kept in `biomodels/spaces/*/wiring.yaml`:
+
+**neuro_single_neuron.yaml**
+**neuro_single_neuron.toml**
+**neuro_microcircuit.yaml**
+**neuro_microcircuit.toml**
 
 Load and run:
 ```python
 import bsim
 world = bsim.BioWorld()
-bsim.load_wiring(world, "examples/configs/neuro_microcircuit.yaml")
+bsim.load_wiring(world, "<path-to-wiring.yaml>")
 world.run(duration=0.3, tick_dt=0.0001)
 ```
 
 ## See Also
 
-- [VisualSpec Contract](../tasks/contracts/visualspec.md)
-- [Wiring Spec](../tasks/contracts/wiring-spec.md)
-- [SimUI API](../tasks/contracts/simui-api.md)
+- [VisualSpec Contract](../product-docs/contracts/visualspec.md)
+- [Wiring Spec](../product-docs/contracts/wiring-spec.md)
+- [SimUI API](../product-docs/contracts/simui-api.md)
