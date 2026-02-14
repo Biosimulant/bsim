@@ -4,7 +4,7 @@ set -euo pipefail
 # Build the SimUI frontend (React/TS) and copy artifacts into the Python package static dir.
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-FRONTEND_DIR="$ROOT_DIR/src/bsim/simui/_frontend"
+FRONTEND_DIR="$ROOT_DIR/packages/simui-ui"
 STATIC_DIR="$ROOT_DIR/src/bsim/simui/static"
 
 if ! command -v npm >/dev/null 2>&1; then
@@ -22,15 +22,15 @@ else
   npm install
 fi
 
-echo "Building frontend (npm run build)..."
-npm run build
+echo "Building frontend (npm run build:static)..."
+npm run build:static
 
 echo "Copying artifacts to $STATIC_DIR ..."
 mkdir -p "$STATIC_DIR"
-cp -f dist/app.js "$STATIC_DIR/app.js"
+cp -f dist-static/app.js "$STATIC_DIR/app.js"
 # Copy CSS bundle if present for additional styling
-if [ -f dist/app.css ]; then
-  cp -f dist/app.css "$STATIC_DIR/app.css"
+if [ -f dist-static/app.css ]; then
+  cp -f dist-static/app.css "$STATIC_DIR/app.css"
 fi
 
 echo "Done."

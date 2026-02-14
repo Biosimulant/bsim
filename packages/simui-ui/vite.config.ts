@@ -11,14 +11,25 @@ export default defineConfig(({ mode }) => {
       build: {
         outDir: "dist",
         emptyOutDir: true,
-        sourcemap: true,
+        // Keep git-pinned installs small and pre-commit-friendly (no multi-MB maps).
+        sourcemap: false,
         lib: {
           entry: path.resolve(__dirname, "src/index.ts"),
           formats: ["es", "cjs"],
           fileName: (format) => (format === "es" ? "index.js" : "index.cjs"),
         },
         rollupOptions: {
-          external: ["react", "react-dom", "react/jsx-runtime"],
+          // Don't bundle deps into the UI library. This keeps the git-pinned
+          // package small and avoids pre-commit rejecting large artifacts.
+          external: [
+            "react",
+            "react-dom",
+            "react/jsx-runtime",
+            "@xyflow/react",
+            "dagre",
+            "react-markdown",
+            "remark-gfm",
+          ],
           output: {
             exports: "named",
           },
