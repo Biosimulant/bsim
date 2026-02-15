@@ -1,13 +1,30 @@
-"""Tests for the neuro pack modules."""
+"""Tests for the neuro model modules (self-contained in models/models/)."""
 from __future__ import annotations
+
+import sys
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+# Add model directories to sys.path so we can import from src.*
+_MODELS_DIR = Path(__file__).resolve().parents[2] / "models" / "models"
+for _model in ["neuro-poisson-input", "neuro-izhikevich-population"]:
+    _p = str(_MODELS_DIR / _model)
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
 
 @pytest.fixture
-def neuro(bsim):
-    from bsim.packs import neuro
-    return neuro
+def neuro():
+    """Provide neuro model classes as a namespace."""
+    from src.poisson_input import PoissonInput
+    from src.izhikevich import IzhikevichPopulation
+
+    return SimpleNamespace(
+        PoissonInput=PoissonInput,
+        IzhikevichPopulation=IzhikevichPopulation,
+    )
 
 
 def test_poisson_input_emits_spikes(bsim, neuro):

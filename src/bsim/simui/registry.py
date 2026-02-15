@@ -272,7 +272,5 @@ def get_default_registry() -> ModuleRegistry:
     global _default_registry
     if _default_registry is None:
         _default_registry = ModuleRegistry()
-        # Register built-in packs
-        _default_registry.register_pack("bsim.packs.neuro", "neuro")
-        _default_registry.register_pack("bsim.packs.ecology", "ecology")
+        # Models are self-contained in their own directories (models/models/)
     return _default_registry
