@@ -22,15 +22,15 @@ This document compiles the bsim repository guides into a single reference.
 
 \newpage
 
-{% include_relative api/bioworld.md %}
+{% include_relative bioworld.md %}
 
 \newpage
 
-{% include_relative api/biomodule.md %}
+{% include_relative biomodule.md %}
 
 \newpage
 
-{% include_relative api/wiring.md %}
+{% include_relative wiring.md %}
 
 \newpage
 
@@ -38,4 +38,12 @@ This document compiles the bsim repository guides into a single reference.
 
 \newpage
 
-{% include_relative examples/brain_pipeline.md %}
+{% include_relative brain_pipeline.md %}
+
+\newpage
+
+{% include_relative neuro.md %}
+
+\newpage
+
+{% include_relative plugin-development.md %}

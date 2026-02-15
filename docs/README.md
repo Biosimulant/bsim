@@ -7,8 +7,9 @@ Welcome to the bsim documentation. This guide explains the core concepts, APIs, 
 - [Overview](overview.md): high-level architecture, core concepts (BioWorld, BioModule, BioSignal, SimUI)
 - [Quickstart](quickstart.md): install, run, and explore
 - API:
+  - [BioWorld](bioworld.md): orchestrator, events, run control (pause/resume/stop), signal routing
   - [BioModule](biomodule.md): module interface, lifecycle, port metadata, visualization
-  - [Wiring](wiring.md): WiringBuilder and YAML/TOML loaders
+  - [Wiring](wiring.md): WiringBuilder, `build_from_spec`, and YAML/TOML loaders
   - [Configuration](config.md): how to write wiring files
 - [Example: Eye → LGN → SC pipeline](brain_pipeline.md)
 - [Neuro packs](neuro.md): computational neuroscience modules (Izhikevich, Hodgkin-Huxley, Poisson input, synapses, monitors) — lives in the companion [`models`](https://github.com/Biosimulant/models) repo
