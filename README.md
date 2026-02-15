@@ -74,9 +74,13 @@ class Counter(bsim.BioModule):
         self.value += 1
 
     def get_outputs(self):
+        source = getattr(self, "_world_name", "counter")
         return {
             "count": BioSignal(
+                source=source,
+                name="count",
                 value=self.value,
+                time=0.0,
                 metadata=SignalMetadata(units="1", description="tick counter"),
             )
         }
@@ -101,7 +105,10 @@ class MyModule(bsim.BioModule):
         return {}
 
     def visualize(self):
-        return {"render": "timeseries", "data": {"series": [{"name": "s", "points": [[0.0, 1.0]]}]}}
+        return {
+            "render": "timeseries",
+            "data": {"series": [{"name": "s", "points": [[0.0, 1.0]]}]},
+        }
 
 world = bsim.BioWorld()
 world.add_biomodule("module", MyModule())
@@ -117,7 +124,7 @@ SimUI lets you build and launch a small web UI entirely from Python (similar to 
 
 - User usage (no Node/npm required):
   - Install UI extras: `pip install -e '.[ui]'`
-  - Try the demo: `python examples/ui_demo.py` then open `http://127.0.0.1:7861/ui/`.
+  - Try the demo: `python examples/ui_demo.py` then open `http://127.0.0.1:7860/ui/`.
   - From your own code:
 
     ```python
@@ -131,7 +138,19 @@ SimUI lets you build and launch a small web UI entirely from Python (similar to 
     ui.launch()
     ```
 
-  - The UI provides endpoints under `/ui/api/...`: `spec`, `run`, `status`, `events`, `visuals`.
+  - The UI provides endpoints under `/ui/api/...`:
+    - `GET /api/spec` – UI layout (controls, outputs, modules)
+    - `POST /api/run` – Start a simulation run
+    - `GET /api/status` – Runner status (running/paused/error)
+    - `GET /api/state` – Full state (status + last step + modules)
+    - `GET /api/events` – Buffered world events (`?since_id=&limit=`)
+    - `GET /api/visuals` – Collected module visuals
+    - `GET /api/snapshot` – Full snapshot (status + visuals + events)
+    - `GET /api/stream` – SSE endpoint for real-time event streaming
+    - `POST /api/pause` – Pause running simulation
+    - `POST /api/resume` – Resume paused simulation
+    - `POST /api/reset` – Stop, reset, and clear buffers
+    - **Editor sub-API** (`/api/editor/...`): visual config editor for loading, saving, validating, and applying YAML wiring configs as node graphs. Endpoints include `modules`, `current`, `config`, `apply`, `validate`, `layout`, `to-yaml`, `from-yaml`, and `files`.
 
 Per-run resets for clean visuals
 - On each `Run`, the backend clears its event buffer and calls `reset()` on modules if they implement it.
@@ -157,8 +176,12 @@ Troubleshooting:
   - `bar`: `data = { "items": [{ "label": str, "value": number }, ...] }`
   - `table`: `data = { "columns": [..], "rows": [[..], ...] }` or `data = { "items": [{...}, ...] }`
   - `image`: `data = { "src": str, "alt"?: str, "width"?: number, "height"?: number }`
+  - `scatter`: scatter plot data
+  - `heatmap`: matrix/heatmap data
   - `graph`: placeholder renderer shows counts + JSON; richer graph lib can be added later
+  - `custom:<type>`: custom renderer namespace for user-defined types
   - unknown types: rendered as JSON fallback
+- VisualSpec may also include an optional `description` (string) for hover text or captions.
 
 ## Terminology
 

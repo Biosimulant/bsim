@@ -1,84 +1,80 @@
 # Neuro Pack: Computational Neuroscience Modules
 
-This document describes the neuro pack (`bsim.packs.neuro`), a reference implementation for simulating spiking neural networks with `bsim`.
+This document describes the neuro model packs in the companion `models` repository, a reference implementation for simulating spiking neural networks with `bsim`.
+
+> **Important**: The neuro modules are **not** bundled inside the `bsim` core library. They live as separate model packs in the [`Biosimulant/models`](https://github.com/Biosimulant/models) repo under `models/models/neuro-*`.
 
 ## Overview
 
-The neuro pack provides a minimal but composable set of `BioModule`s for:
+The neuro packs provide a minimal but composable set of `BioModule`s for:
 - Generating spike inputs (Poisson processes, current injection)
-- Simulating spiking neurons (Izhikevich model)
+- Simulating spiking neurons (Izhikevich model, Hodgkin-Huxley model)
 - Converting spikes to synaptic currents
 - Monitoring and visualizing network activity
+
+## Available Models
+
+| Model Pack | Entrypoint | Description |
+|------------|-----------|-------------|
+| `neuro-izhikevich-population` | `src.izhikevich:IzhikevichPopulation` | Izhikevich spiking neuron population (RS/FS/Bursting/Chattering/LTS presets) |
+| `neuro-hodgkin-huxley-population` | `src.hodgkin_huxley:HodgkinHuxleyPopulation` | Classic Hodgkin-Huxley conductance-based neurons (Na+/K+/leak channels) |
+| `neuro-poisson-input` | `src.poisson_input:PoissonInput` | Poisson spike generator |
+| `neuro-step-current` | `src.step_current:StepCurrent` | Constant/scheduled current injection (alias: `DCInput`) |
+| `neuro-exp-synapse-current` | `src.exp_synapse:ExpSynapseCurrent` | Exponential-decay synaptic current |
+| `neuro-spike-monitor` | `src.spike_monitor:SpikeMonitor` | Spike raster visualization (SVG) |
+| `neuro-rate-monitor` | `src.rate_monitor:RateMonitor` | Population firing rate computation |
+| `neuro-state-monitor` | `src.state_monitor:StateMonitor` | Neuron state tracking (Vm traces) |
+| `neuro-hodgkin-huxley-state-monitor` | `src.hodgkin_huxley_monitor:HHStateMonitor` | HH-specific state monitor (Vm, gating variables m/h/n) |
+| `neuro-metrics` | `src.neuro_metrics:NeuroMetrics` | Summary statistics (spike count, rate, ISI CV) |
 
 ## Quick Start
 
 ### Installation
 
-The neuro pack is included with bsim. No additional installation is required.
-
-```python
-from bsim.packs.neuro import (
-    PoissonInput,
-    StepCurrent,
-    IzhikevichPopulation,
-    ExpSynapseCurrent,
-    SpikeMonitor,
-    RateMonitor,
-    StateMonitor,
-    NeuroMetrics,
-    PRESET_RS,
-    PRESET_FS,
-)
-```
-
-### Running Examples
-
-The heavier end-to-end demos and wiring configs live in the companion repo `models`:
-
-- https://github.com/Biosimulant/models
-
-Clone it and run examples from that repo:
+Clone the models repository alongside bsim:
 
 ```bash
 git clone https://github.com/Biosimulant/models.git
 cd models
+pip install -e ../bsim            # Install bsim core
+pip install -e ../bsim'[ui]'      # Optional: for SimUI
 ```
 
-**Single neuron space (local wiring-spec runner):**
+### Running Spaces
+
+Pre-composed simulation spaces are in `models/spaces/`:
+
+**Single neuron space:**
 ```bash
 python -m bsim spaces/neuro-single-neuron/wiring.yaml
 ```
 
-**E/I microcircuit space (local wiring-spec runner):**
+**E/I microcircuit space (50 neurons):**
 ```bash
 python -m bsim spaces/neuro-microcircuit/wiring.yaml
+```
+
+**Hodgkin-Huxley single neuron:**
+```bash
+python -m bsim spaces/neuro-hodgkin-huxley-neuron/wiring.yaml
 ```
 
 **Local SimUI (optional):**
 ```bash
 python spaces/neuro-microcircuit/simui_local.py
-# Then open http://localhost:8765
+# Then open http://localhost:7860/ui/
 ```
 
 **Config-driven runs (no code changes):**
 ```bash
-# Using YAML
 python -c "
 import bsim
 w = bsim.BioWorld()
-bsim.load_wiring(w, '<path-to-neuro_single_neuron.yaml>')
+bsim.load_wiring(w, 'spaces/neuro-single-neuron/wiring.yaml')
 w.run(duration=0.5, tick_dt=0.0001)
 print('Simulation complete')
 for v in w.collect_visuals():
     print(f'  {v[\"module\"]}: {[x[\"render\"] for x in v[\"visuals\"]]}')"
-
-# Using TOML
-python -c "
-import bsim
-w = bsim.BioWorld()
-bsim.load_wiring(w, '<path-to-neuro_microcircuit.toml>')
-w.run(duration=0.3, tick_dt=0.0001)
-print([v['module'] for v in w.collect_visuals()])"
 ```
 
 ## Module Reference
@@ -95,7 +91,7 @@ Generates spikes according to a Poisson process.
 - `seed: int | None` - Random seed for reproducibility
 
 **Outputs:**
-- `spikes` - Payload: `{"t": float, "ids": [int, ...]}`
+- `spikes` - BioSignal with value: list of spiked neuron IDs
 
 **Example:**
 ```python
@@ -109,9 +105,13 @@ Injects constant or time-varying current.
 **Parameters:**
 - `I: float` - Current amplitude (default: 10.0)
 - `schedule: list[tuple] | None` - Optional `[(start, end, I_value), ...]` for time-varying current
+- `min_dt: float` - Time step (default: 0.001)
 
 **Outputs:**
-- `current` - Payload: `{"t": float, "I": float}`
+- `current` - BioSignal with `value: float` (current amplitude)
+
+**Visualizes:**
+- `timeseries` VisualSpec: current injection over time
 
 **Example:**
 ```python
@@ -135,14 +135,15 @@ A population of Izhikevich spiking neurons.
 - `v_init: float` - Initial membrane potential (default: -65.0 mV)
 - `u_init: float | None` - Initial recovery variable (default: b * v_init)
 - `I_bias: float` - Constant bias current (default: 0.0)
-- `sample_indices: list[int] | None` - Neuron indices for state output (default: [0,1,2,3,4])
+- `sample_indices: list[int] | None` - Neuron indices for state output (default: first 5)
+- `min_dt: float` - Time step (default: 0.001)
 
 **Inputs:**
-- `current` - Payload: `{"t": float, "I": float}` or `{"t": float, "I": [float, ...]}`
+- `current` - BioSignal with `value: float` (scalar) or `value: list[float]` (per-neuron)
 
 **Outputs:**
-- `spikes` - Payload: `{"t": float, "ids": [int, ...]}`
-- `state` - Payload: `{"t": float, "indices": [int, ...], "v": [float, ...], "u": [float, ...]}`
+- `spikes` - BioSignal with `value: list[int]` (spiked neuron IDs), kind="event"
+- `state` - BioSignal with `value: {"t": float, "indices": [int, ...], "v": [float, ...], "u": [float, ...]}`
 
 **Presets:**
 
@@ -154,11 +155,27 @@ A population of Izhikevich spiking neurons.
 | Chattering | 0.02 | 0.2 | -50 | 2 | Chattering |
 | LTS | 0.02 | 0.25 | -65 | 2 | Low-Threshold Spiking |
 
+**Visualizes:**
+- `timeseries` VisualSpec: membrane potential of sampled neurons
+
 **Example:**
 ```python
 exc_pop = IzhikevichPopulation(n=80, preset="RS", I_bias=0.0)
 inh_pop = IzhikevichPopulation(n=20, preset="FS")
 ```
+
+#### HodgkinHuxleyPopulation
+
+A population of Hodgkin-Huxley conductance-based spiking neurons (1952 squid giant axon model).
+
+Uses voltage-gated Na+, K+, and leak channels with gating variables m, h, n.
+
+**Inputs:**
+- `current` - BioSignal with injected current
+
+**Outputs:**
+- `spikes` - BioSignal with spiked neuron IDs
+- `state` - BioSignal with membrane state (Vm, gating variables)
 
 ### Synapse Modules
 
@@ -176,10 +193,10 @@ Converts incoming spikes to exponentially decaying synaptic current.
 - `delay_steps: int` - Spike delivery delay (default: 0)
 
 **Inputs:**
-- `spikes` - Payload: `{"t": float, "ids": [int, ...]}`
+- `spikes` - BioSignal with spiked neuron IDs
 
 **Outputs:**
-- `current` - Payload: `{"t": float, "I": [float, ...]}`
+- `current` - BioSignal with per-neuron synaptic current array
 
 **Example:**
 ```python
@@ -239,6 +256,16 @@ Records membrane voltage traces.
 **Visualizes:**
 - `timeseries` VisualSpec: Vm traces for monitored neurons
 
+#### HHStateMonitor
+
+Hodgkin-Huxley-specific state monitor that tracks membrane voltage and gating variables (m, h, n).
+
+**Inputs:**
+- `state`
+
+**Visualizes:**
+- `timeseries` VisualSpec: Vm and gating variable traces
+
 #### NeuroMetrics
 
 Computes summary statistics.
@@ -259,52 +286,40 @@ Metrics computed:
 - Mean Rate (Hz)
 - ISI CV (coefficient of variation of inter-spike intervals)
 
-## Topics and Payloads
+## Signal Conventions
 
-The neuro pack uses a small set of stable topic names for inter-module communication.
+The neuro packs use BioSignal objects with these conventions:
 
-### `spikes`
-
-Discrete spike events from populations or input generators.
-
-```json
-{"t": 0.123, "ids": [0, 5, 12, 47]}
+### Spike signals (kind="event")
+Emitted by populations and input generators. The `value` field contains a list of neuron indices that spiked:
+```python
+BioSignal(source="neuron", name="spikes", value=[0, 5, 12, 47], time=0.123,
+          metadata=SignalMetadata(kind="event"))
 ```
 
-- `t`: Time in seconds
-- `ids`: List of neuron indices that spiked
+### Current signals (kind="state")
+Injected current as scalar or per-neuron array:
+```python
+# Scalar current
+BioSignal(source="dc", name="current", value=10.0, time=0.123,
+          metadata=SignalMetadata(units="nA", kind="state"))
 
-### `current`
-
-Injected current (scalar or per-neuron).
-
-```json
-{"t": 0.123, "I": 10.0}
-```
-or
-```json
-{"t": 0.123, "I": [1.2, 0.8, 1.5, ...]}
+# Per-neuron array
+BioSignal(source="synapse", name="current", value=[1.2, 0.8, 1.5, ...], time=0.123,
+          metadata=SignalMetadata(kind="state"))
 ```
 
-- `t`: Time in seconds
-- `I`: Current amplitude (float) or per-neuron array
-
-### `state`
-
-Neuron state for monitoring/visualization.
-
-```json
-{"t": 0.123, "indices": [0, 1, 2], "v": [-65.2, -60.1, -70.0], "u": [-13.0, -12.0, -14.0]}
+### State signals (kind="state")
+Neuron state for monitoring/visualization:
+```python
+BioSignal(source="neuron", name="state",
+          value={"t": 0.123, "indices": [0, 1, 2], "v": [-65.2, -60.1, -70.0], "u": [-13.0, -12.0, -14.0]},
+          time=0.123, metadata=SignalMetadata(kind="state"))
 ```
-
-- `t`: Time in seconds
-- `indices`: Sampled neuron indices
-- `v`: Membrane potentials (mV)
-- `u`: Recovery variables
 
 ## Visual Outputs
 
-The neuro pack uses the SimUI VisualSpec contract:
+The neuro packs use the SimUI VisualSpec contract. VisualSpecs may include an optional `description` field for hover text/captions.
 
 ### Raster Plot (Image)
 
@@ -340,10 +355,12 @@ The neuro pack uses the SimUI VisualSpec contract:
     "render": "timeseries",
     "data": {
         "series": [
-            {"name": "Neuron 0 Vm (mV)", "points": [[0.0, -65.0], ...]},
-            {"name": "Neuron 1 Vm (mV)", "points": [[0.0, -65.0], ...]}
-        ]
-    }
+            {"name": "Neuron 0", "points": [[0.0, -65.0], ...]},
+            {"name": "Neuron 1", "points": [[0.0, -65.0], ...]}
+        ],
+        "title": "IzhikevichPopulation (n=100) Membrane Potential"
+    },
+    "description": "Membrane potential of sampled Izhikevich neurons..."
 }
 ```
 
@@ -369,30 +386,28 @@ The neuro pack uses the SimUI VisualSpec contract:
 
 ### Scenario A: Single Neuron Regimes
 
-Demonstrates how Izhikevich parameters affect spiking behavior.
+Demonstrates how Izhikevich parameters affect spiking behavior. Uses models from the `models` repo wired together:
 
-```python
-import bsim
-from bsim.packs.neuro import StepCurrent, IzhikevichPopulation, StateMonitor, SpikeMonitor
-
-world = bsim.BioWorld()
-
-# Regular spiking neuron with DC input
-current = StepCurrent(I=10.0)
-neuron = IzhikevichPopulation(n=1, preset="RS")
-spike_mon = SpikeMonitor()
-state_mon = StateMonitor()
-
-wb = bsim.WiringBuilder(world)
-wb.add("current", current).add("neuron", neuron)
-wb.add("spike_mon", spike_mon).add("state_mon", state_mon)
-wb.connect("current.current", ["neuron.current"])
-wb.connect("neuron.spikes", ["spike_mon.spikes"])
-wb.connect("neuron.state", ["state_mon.state"])
-wb.apply()
-
-world.run(duration=0.5, tick_dt=0.0001)  # 500ms
-visuals = world.collect_visuals()
+```yaml
+# spaces/neuro-single-neuron/space.yaml (abbreviated)
+models:
+  - alias: current
+    manifest_path: models/neuro-step-current/model.yaml
+    parameters: { I: 10.0 }
+  - alias: neuron
+    manifest_path: models/neuro-izhikevich-population/model.yaml
+    parameters: { n: 1, preset: "RS" }
+  - alias: spike_mon
+    manifest_path: models/neuro-spike-monitor/model.yaml
+  - alias: state_mon
+    manifest_path: models/neuro-state-monitor/model.yaml
+wiring:
+  - from: current.current
+    to: [neuron.current]
+  - from: neuron.spikes
+    to: [spike_mon.spikes]
+  - from: neuron.state
+    to: [state_mon.state]
 ```
 
 ### Scenario B: E/I Microcircuit
@@ -406,27 +421,31 @@ Key observations:
 - **Strong inhibition**: Activity suppression
 - **Weak inhibition**: Synchronization/oscillations
 
+### Scenario C: Hodgkin-Huxley Neuron
+
+Classic conductance-based model with detailed ion channel dynamics.
+
+See `models/spaces/neuro-hodgkin-huxley-neuron/space.yaml` for the composed space manifest.
+
 ## Config Files
 
-The neuro pack supports YAML and TOML wiring configs:
+Example wiring specs are in `models/spaces/`:
 
-Example wiring specs are kept in `models/spaces/*/wiring.yaml`:
-
-**neuro_single_neuron.yaml**
-**neuro_single_neuron.toml**
-**neuro_microcircuit.yaml**
-**neuro_microcircuit.toml**
+- `spaces/neuro-single-neuron/` - Single Izhikevich neuron + step current + monitors
+- `spaces/neuro-microcircuit/` - 50-neuron E/I network with Poisson drive
+- `spaces/neuro-hodgkin-huxley-neuron/` - Single HH neuron + monitors
 
 Load and run:
 ```python
 import bsim
 world = bsim.BioWorld()
-bsim.load_wiring(world, "<path-to-wiring.yaml>")
+bsim.load_wiring(world, "spaces/neuro-single-neuron/wiring.yaml")
 world.run(duration=0.3, tick_dt=0.0001)
 ```
 
 ## See Also
 
-- [VisualSpec Contract](../product-docs/contracts/visualspec.md)
-- [Wiring Spec](../product-docs/contracts/wiring-spec.md)
-- [SimUI API](../product-docs/contracts/simui-api.md)
+- [bsim README](../README.md) - VisualSpec types, SimUI API reference
+- [Wiring docs](wiring.md) - WiringBuilder and loader API
+- [Config docs](config.md) - YAML/TOML config file format
+- [models STANDARDS.md](https://github.com/Biosimulant/models/blob/main/STANDARDS.md) - Model contribution guidelines

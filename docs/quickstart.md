@@ -21,13 +21,20 @@ from bsim import BioSignal, SignalMetadata
 class Eye(bsim.BioModule):
     min_dt = 0.1
 
+    def __init__(self):
+        self._time = 0.0
+
     def advance_to(self, t: float) -> None:
-        return
+        self._time = t
 
     def get_outputs(self):
+        source = getattr(self, "_world_name", "eye")
         return {
             "visual_stream": BioSignal(
-                value={"t": t},
+                source=source,
+                name="visual_stream",
+                value={"t": self._time},
+                time=self._time,
                 metadata=SignalMetadata(units="s"),
             )
         }
@@ -35,8 +42,11 @@ class Eye(bsim.BioModule):
 class LGN(bsim.BioModule):
     min_dt = 0.1
 
-    def set_inputs(self, inputs):
-        self._inputs = inputs
+    def __init__(self):
+        self._inputs = {}
+
+    def set_inputs(self, signals):
+        self._inputs = signals
 
     def advance_to(self, t: float) -> None:
         return

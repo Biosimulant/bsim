@@ -31,21 +31,22 @@ modules:
 All modules implement the runnable contract. A minimal interface looks like:
 
 ```python
-from typing import Any, Dict, Optional, Set
-from bsim import BioModule, BioWorld, BioSignal, SignalMetadata
+from typing import Any, Dict, List, Optional, Set
+from bsim import BioModule, BioSignal, SignalMetadata
 
 class BioModule:
-    min_dt: float
+    min_dt: float  # required positive value
 
-    def setup(self, world: BioWorld) -> None: ...
+    def setup(self, config: Optional[Dict[str, Any]] = None) -> None: ...
     def reset(self) -> None: ...
-    def advance_to(self, t: float) -> None: ...
-    def set_inputs(self, inputs: Dict[str, BioSignal]) -> None: ...
-    def get_outputs(self) -> Dict[str, BioSignal]: ...
+    def advance_to(self, t: float) -> None: ...       # abstract
+    def set_inputs(self, signals: Dict[str, BioSignal]) -> None: ...
+    def get_outputs(self) -> Dict[str, BioSignal]: ... # abstract
     def get_state(self) -> Dict[str, Any]: ...
-    def next_due_time(self, t: float) -> Optional[float]: ...
+    def next_due_time(self, now: float) -> float: ...  # returns now + min_dt by default
     def inputs(self) -> Set[str]: ...
     def outputs(self) -> Set[str]: ...
+    def visualize(self) -> Optional[Dict | List[Dict]]: ...
 ```
 
 ### Minimal Module Example
@@ -63,20 +64,27 @@ class Counter(BioModule):
     def __init__(self, name: str = "counter"):
         self.name = name
         self._count = 0
+        self._time = 0.0
 
     def outputs(self) -> Set[str]:
         return {"count"}
 
     def reset(self) -> None:
         self._count = 0
+        self._time = 0.0
 
     def advance_to(self, t: float) -> None:
         self._count += 1
+        self._time = t
 
     def get_outputs(self) -> Dict[str, BioSignal]:
+        source = getattr(self, "_world_name", "counter")
         return {
             "count": BioSignal(
-                value={"count": self._count, "t": t},
+                source=source,
+                name="count",
+                value={"count": self._count},
+                time=self._time,
                 metadata=SignalMetadata(units="1"),
             )
         }
@@ -103,8 +111,15 @@ class Accumulator(BioModule):
             self._total += self._inputs["value"].value
 
     def get_outputs(self):
+        source = getattr(self, "_world_name", "accumulator")
         return {
-            "sum": BioSignal(value=self._total, metadata=SignalMetadata(units="1"))
+            "sum": BioSignal(
+                source=source,
+                name="sum",
+                value=self._total,
+                time=0.0,
+                metadata=SignalMetadata(units="1"),
+            )
         }
 ```
 

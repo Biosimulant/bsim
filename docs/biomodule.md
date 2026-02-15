@@ -8,18 +8,28 @@ BioModule encapsulates behavior with local state. It:
 Signature (selected)
 ```python
 class BioModule:
-    min_dt: float  # required (seconds by default)
+    min_dt: float  # required positive value (seconds by default), defaults to 0.0
 
-    def setup(self, world: BioWorld) -> None: ...
+    def setup(self, config: Optional[Dict[str, Any]] = None) -> None: ...
     def reset(self) -> None: ...
-    def advance_to(self, t: float) -> None: ...
-    def set_inputs(self, inputs: dict[str, BioSignal]) -> None: ...
-    def get_outputs(self) -> dict[str, BioSignal]: ...
-    def get_state(self) -> dict[str, Any]: ...
-    def next_due_time(self, t: float) -> Optional[float]: ...
-    def inputs(self) -> set[str]: ...
-    def outputs(self) -> set[str]: ...
+    def advance_to(self, t: float) -> None: ...       # abstract
+    def set_inputs(self, signals: Dict[str, BioSignal]) -> None: ...
+    def get_outputs(self) -> Dict[str, BioSignal]: ... # abstract
+    def get_state(self) -> Dict[str, Any]: ...
+    def next_due_time(self, now: float) -> float: ...  # returns now + min_dt by default
+    def inputs(self) -> Set[str]: ...
+    def outputs(self) -> Set[str]: ...
+    def input_schemas(self) -> Dict[str, Any]: ...     # optional, for future tooling
+    def output_schemas(self) -> Dict[str, Any]: ...    # optional, for future tooling
+    def visualize(self) -> Optional[VisualSpec | List[VisualSpec]]: ...
 ```
+
+Notes:
+- `advance_to` and `get_outputs` are abstract (must be implemented).
+- `setup` receives an optional config dict (per-module section from the world config), not the BioWorld instance.
+- `next_due_time` returns `float` (not Optional); default implementation is `now + min_dt`.
+- `input_schemas`/`output_schemas` return port-name-to-schema mappings; currently unused but reserved for future validation.
+- `visualize` returns a VisualSpec dict or list of dicts for browser rendering (see README VisualSpec types).
 
 Example with local state
 ```python
@@ -36,9 +46,13 @@ class Eye(bsim.BioModule):
         self.photons_seen += 1
 
     def get_outputs(self):
+        source = getattr(self, "_world_name", "eye")
         return {
             "visual_stream": bsim.BioSignal(
-                value={"t": t, "count": self.photons_seen},
+                source=source,
+                name="visual_stream",
+                value={"count": self.photons_seen},
+                time=0.0,
                 metadata=bsim.SignalMetadata(units="1"),
             )
         }
