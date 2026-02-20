@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "bsim"
 dynamic = ["version"]
-description = ''
+description = "Core simulation library for Biosimulant"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
