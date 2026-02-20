@@ -1,7 +1,7 @@
 # bsim
 
-[![PyPI - Version](https://img.shields.io/pypi/v/bsim.svg)](https://pypi.org/project/bsim)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/bsim.svg)](https://pypi.org/project/bsim)
+[![PyPI - Version](https://img.shields.io/pypi/v/biosim.svg)](https://pypi.org/project/biosim)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/biosim.svg)](https://pypi.org/project/biosim)
 
 Composable simulation runtime + UI layer for orchestrating runnable biomodules.
 
@@ -37,7 +37,7 @@ pip install "bsim @ git+https://github.com/<org>/bsim.git@<ref>"
 Alternative (package index):
 
 ```console
-pip install bsim
+pip install biosim
 ```
 
 ## Examples

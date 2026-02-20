@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "bsim"
+name = "biosim"
 dynamic = ["version"]
 description = "Core simulation library for Biosimulant"
 readme = "README.md"
