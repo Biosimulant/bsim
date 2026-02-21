@@ -34,21 +34,33 @@ export default function Footer() {
         </header>
         <div className="footer-body">
           {events.length === 0 ? (
-            <div className="event-list empty"><div className="empty-state"><p>No events recorded yet</p></div></div>
+            <div className="event-list empty">
+              <div className="empty-state">
+                <p>No events recorded yet</p>
+                {state.status?.phase_message && (
+                  <p className="empty-state-phase">{state.status.phase_message}</p>
+                )}
+              </div>
+            </div>
           ) : (
             <div className="event-list-container">
               <div className="event-list-header">
                 <span className="event-count">{events.length} event{events.length !== 1 ? 's' : ''}</span>
                 <div className="event-controls">
-                  <button className={`btn btn-small ${autoScroll ? 'active' : ''}`} onClick={() => setAutoScroll(!autoScroll)} title={autoScroll ? 'Auto-scroll enabled' : 'Auto-scroll disabled'}>📌</button>
-                  <button className="btn btn-small" onClick={() => { if (listRef.current) { listRef.current.scrollTop = listRef.current.scrollHeight; setAutoScroll(true) } }} title="Scroll to bottom">⬇️</button>
+                  <button className={`btn btn-small ${autoScroll ? 'active' : ''}`} onClick={() => setAutoScroll(!autoScroll)} title={autoScroll ? 'Auto-scroll enabled' : 'Auto-scroll disabled'}>
+                    {'\u{1F4CC}'}
+                  </button>
                 </div>
               </div>
               <div ref={listRef} className="event-list" onScroll={onScroll}>
                 {events.slice().reverse().map((ev) => (
-                  <div key={ev.id} className="event-item">
+                  <div key={ev.id} className={`event-item ${ev.event === 'phase' ? 'event-item--phase' : ''}`}>
                     <time className="event-timestamp" dateTime={ev.ts}>{ev.ts}</time>
-                    <div className="event-message">{ev.event}</div>
+                    <div className="event-message">
+                      {ev.event === 'phase' && ev.payload?.message
+                        ? String(ev.payload.message)
+                        : ev.event}
+                    </div>
                   </div>
                 ))}
               </div>

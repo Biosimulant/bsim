@@ -49,7 +49,21 @@ export type RunStatus = {
   running: boolean
   paused: boolean
   tick_count?: number
+  phase?: string
+  phase_message?: string
   error?: { message: string }
+}
+
+export type RunLogEntry = {
+  id: string
+  run_id: string
+  seq: number
+  ts: string
+  source: string
+  level: string
+  event_type?: string | null
+  message?: string | null
+  truncated: boolean
 }
 
 export type Snapshot = {

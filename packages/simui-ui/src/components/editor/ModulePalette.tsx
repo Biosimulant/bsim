@@ -36,7 +36,7 @@ const ModulePalette: React.FC<ModulePaletteProps> = ({ registry, onDragStart }) 
   }
 
   const categoryColors: Record<string, string> = {
-    neuro: '#3b82f6',
+    neuro: 'var(--primary)',
     ecology: '#22c55e',
     custom: '#a855f7',
   }

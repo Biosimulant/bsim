@@ -394,7 +394,7 @@ function Ct({ data: n, isFullscreen: t }) {
       /* @__PURE__ */ e("line", { x1: 46, y1: g(u), x2: 50, y2: g(u), className: "tick" }),
       /* @__PURE__ */ e("text", { x: 44, y: g(u) + 3, className: "ticklbl", textAnchor: "end", children: u.toFixed(2) })
     ] }, `ty-${u}`)),
-    f.map((u, v) => /* @__PURE__ */ e("polyline", { points: m(u), fill: "none", stroke: v === 0 ? "#2563eb" : v === 1 ? "#dc2626" : "#10b981", strokeWidth: 2 }, v))
+    f.map((u, v) => /* @__PURE__ */ e("polyline", { points: m(u), fill: "none", stroke: v === 0 ? "var(--primary)" : v === 1 ? "var(--danger)" : "var(--accent)", strokeWidth: 2 }, v))
   ] }) });
 }
 function kt({ data: n, isFullscreen: t }) {
@@ -1528,7 +1528,7 @@ function jt() {
 }
 const Ft = ({ data: n, selected: t }) => {
   const o = n, { label: s, moduleType: a, inputs: c, outputs: l } = o, d = a.split(".").pop() || a, f = a.includes(".neuro.") ? "neuro" : a.includes(".ecology.") ? "ecology" : "custom", w = {
-    neuro: { bg: "#1a2744", border: "#3b82f6", header: "#2563eb", text: "#e0f2fe" },
+    neuro: { bg: "var(--primary-bg)", border: "var(--primary)", header: "var(--primary-dark)", text: "var(--primary-text)" },
     ecology: { bg: "#14352a", border: "#22c55e", header: "#16a34a", text: "#dcfce7" },
     custom: { bg: "#2e1a47", border: "#a855f7", header: "#9333ea", text: "#f3e8ff" }
   }[f];
@@ -1586,7 +1586,7 @@ const Ft = ({ data: n, selected: t }) => {
                     width: "12px",
                     height: "12px",
                     background: "#6b7280",
-                    border: "2px solid #1a2744",
+                    border: "2px solid var(--primary-bg)",
                     left: "-6px"
                   }
                 }
@@ -1608,7 +1608,7 @@ const Ft = ({ data: n, selected: t }) => {
                     width: "12px",
                     height: "12px",
                     background: w.header,
-                    border: "2px solid #1a2744",
+                    border: "2px solid var(--primary-bg)",
                     right: "-6px"
                   }
                 }
@@ -1628,7 +1628,7 @@ const Ft = ({ data: n, selected: t }) => {
     const m = new Set(o);
     m.has(g) ? m.delete(g) : m.add(g), s(m);
   }, k = {
-    neuro: "#3b82f6",
+    neuro: "var(--primary)",
     ecology: "#22c55e",
     custom: "#a855f7"
   }, y = Object.entries(n.categories).map(([g, m]) => {
@@ -1923,7 +1923,7 @@ const Ft = ({ data: n, selected: t }) => {
     targetHandle: a.targetHandle,
     type: "smoothstep",
     animated: !1,
-    style: { stroke: "#6b7280", strokeWidth: 2 }
+    style: { stroke: "var(--primary-muted)", strokeWidth: 2 }
   }));
   return { nodes: o, edges: s };
 }, Ie = (n, t, o) => {
@@ -1948,7 +1948,7 @@ const Ft = ({ data: n, selected: t }) => {
   }));
   return { nodes: s, edges: a, meta: o };
 }, Gt = ({ api: n, initialConfigPath: t }) => {
-  const o = n.editor, [s, a, c] = ct([]), [l, d, f] = dt([]), [N, w] = B(null), [S, k] = B(null), [y, g] = B(t || ""), [m, A] = B({}), [M, u] = B(!1), [v, x] = B(null), [b, R] = B([]), [V, P] = B(!t), [F, D] = B(!1), [X, C] = B(""), O = ue(null), W = "#0f1628", Y = "#11182b", Z = "#e6eaf2", ne = "#9aa6c1", U = "#1e2a44", Ae = "#3b82f6", Q = H(() => ({ moduleNode: Jt }), []), [K, xe] = B(!1);
+  const o = n.editor, [s, a, c] = ct([]), [l, d, f] = dt([]), [N, w] = B(null), [S, k] = B(null), [y, g] = B(t || ""), [m, A] = B({}), [M, u] = B(!1), [v, x] = B(null), [b, R] = B([]), [V, P] = B(!t), [F, D] = B(!1), [X, C] = B(""), O = ue(null), W = "#0f1628", Y = "#11182b", Z = "#e6eaf2", ne = "#9aa6c1", U = "#1e2a44", Ae = "var(--primary)", Q = H(() => ({ moduleNode: Jt }), []), [K, xe] = B(!1);
   te(() => {
     (async () => {
       try {
@@ -2020,7 +2020,7 @@ const Ft = ({ data: n, selected: t }) => {
         ...$,
         id: `e${Date.now()}`,
         type: "smoothstep",
-        style: { stroke: "#6b7280", strokeWidth: 2 }
+        style: { stroke: "var(--primary-muted)", strokeWidth: 2 }
       };
       d((_) => je(E, _)), u(!0);
     },
@@ -2223,7 +2223,7 @@ const Ft = ({ data: n, selected: t }) => {
               {
                 nodeColor: ($) => {
                   const E = $.data;
-                  return E.moduleType.includes(".neuro.") ? "#3b82f6" : E.moduleType.includes(".ecology.") ? "#22c55e" : "#a855f7";
+                  return E.moduleType.includes(".neuro.") ? "var(--primary)" : E.moduleType.includes(".ecology.") ? "#22c55e" : "#a855f7";
                 },
                 maskColor: "rgba(11, 16, 32, 0.7)",
                 style: { background: Y, border: `1px solid ${U}`, borderRadius: "6px" }
@@ -2543,7 +2543,7 @@ function qt({
         onClick: d,
         style: {
           padding: "6px 12px",
-          background: "#3b82f6",
+          background: "var(--primary)",
           color: "#fff",
           border: "none",
           borderRadius: "4px",
@@ -2564,14 +2564,14 @@ function qt({
         title: "Open Config Editor",
         style: {
           padding: "10px 16px",
-          background: "#3b82f6",
+          background: "var(--primary)",
           color: "#fff",
           border: "none",
           borderRadius: "8px",
           cursor: "pointer",
           fontSize: "13px",
           fontWeight: 500,
-          boxShadow: "0 2px 8px rgba(59, 130, 246, 0.4)",
+          boxShadow: "0 2px 8px rgba(20, 184, 166, 0.4)",
           display: "flex",
           alignItems: "center",
           gap: "6px"

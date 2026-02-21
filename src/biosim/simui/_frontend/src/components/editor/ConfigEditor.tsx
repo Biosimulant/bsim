@@ -95,7 +95,7 @@ const apiGraphToFlow = (
     targetHandle: e.targetHandle,
     type: 'smoothstep',
     animated: false,
-    style: { stroke: '#6b7280', strokeWidth: 2 },
+    style: { stroke: 'var(--primary-muted)', strokeWidth: 2 },
   }))
 
   return { nodes, edges }
@@ -154,7 +154,7 @@ const ConfigEditor: React.FC<ConfigEditorProps> = ({ api, initialConfigPath }) =
   const text = '#e6eaf2'
   const muted = '#9aa6c1'
   const border = '#1e2a44'
-  const accent = '#3b82f6'
+  const accent = 'var(--primary)'
 
   const nodeTypes: NodeTypes = useMemo(() => ({ moduleNode: ModuleNode }), [])
   const [isApplying, setIsApplying] = useState(false)
@@ -287,7 +287,7 @@ const ConfigEditor: React.FC<ConfigEditorProps> = ({ api, initialConfigPath }) =
         ...params,
         id: `e${Date.now()}`,
         type: 'smoothstep',
-        style: { stroke: '#6b7280', strokeWidth: 2 },
+        style: { stroke: 'var(--primary-muted)', strokeWidth: 2 },
       } as Edge
       setEdges((eds) => addEdge(newEdge, eds))
       setIsDirty(true)
@@ -576,7 +576,7 @@ const ConfigEditor: React.FC<ConfigEditorProps> = ({ api, initialConfigPath }) =
             <MiniMap
               nodeColor={(node) => {
                 const data = node.data as ModuleNodeData
-                if (data.moduleType.includes('.neuro.')) return '#3b82f6'
+                if (data.moduleType.includes('.neuro.')) return 'var(--primary)'
                 if (data.moduleType.includes('.ecology.')) return '#22c55e'
                 return '#a855f7'
               }}

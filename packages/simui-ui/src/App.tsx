@@ -288,7 +288,7 @@ function AppCore({
             onClick={toggleMode}
             style={{
               padding: "6px 12px",
-              background: "#3b82f6",
+              background: "var(--primary)",
               color: "#fff",
               border: "none",
               borderRadius: "4px",
@@ -317,14 +317,14 @@ function AppCore({
             title="Open Config Editor"
             style={{
               padding: "10px 16px",
-              background: "#3b82f6",
+              background: "var(--primary)",
               color: "#fff",
               border: "none",
               borderRadius: "8px",
               cursor: "pointer",
               fontSize: "13px",
               fontWeight: 500,
-              boxShadow: "0 2px 8px rgba(59, 130, 246, 0.4)",
+              boxShadow: "0 2px 8px rgba(20, 184, 166, 0.4)",
               display: "flex",
               alignItems: "center",
               gap: "6px",

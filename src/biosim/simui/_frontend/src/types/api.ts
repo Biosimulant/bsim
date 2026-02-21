@@ -31,6 +31,8 @@ export type RunStatus = {
   running: boolean
   paused: boolean
   tick_count?: number
+  phase?: string
+  phase_message?: string
   error?: { message: string }
 }
 

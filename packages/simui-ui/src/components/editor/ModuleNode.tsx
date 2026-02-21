@@ -23,7 +23,7 @@ const ModuleNode: React.FC<NodeProps> = ({ data, selected }) => {
 
   // Dark theme colors matching globals.css
   const categoryColors: Record<string, { bg: string; border: string; header: string; text: string }> = {
-    neuro: { bg: '#1a2744', border: '#3b82f6', header: '#2563eb', text: '#e0f2fe' },
+    neuro: { bg: 'var(--primary-bg)', border: 'var(--primary)', header: 'var(--primary-dark)', text: 'var(--primary-text)' },
     ecology: { bg: '#14352a', border: '#22c55e', header: '#16a34a', text: '#dcfce7' },
     custom: { bg: '#2e1a47', border: '#a855f7', header: '#9333ea', text: '#f3e8ff' },
   }
@@ -84,7 +84,7 @@ const ModuleNode: React.FC<NodeProps> = ({ data, selected }) => {
                   width: '12px',
                   height: '12px',
                   background: '#6b7280',
-                  border: '2px solid #1a2744',
+                  border: '2px solid var(--primary-bg)',
                   left: '-6px',
                 }}
               />
@@ -111,7 +111,7 @@ const ModuleNode: React.FC<NodeProps> = ({ data, selected }) => {
                   width: '12px',
                   height: '12px',
                   background: colors.header,
-                  border: '2px solid #1a2744',
+                  border: '2px solid var(--primary-bg)',
                   right: '-6px',
                 }}
               />

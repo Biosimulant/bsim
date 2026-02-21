@@ -1,21 +1,104 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { useApi } from '../app/providers'
 import { useUi } from '../app/ui'
+import type { RunLogEntry } from '../types/api'
+
+type Tab = 'events' | 'logs'
 
 export default function Footer() {
+  const api = useApi()
   const { state, actions } = useUi()
   const events = state.events || []
-  const listRef = useRef<HTMLDivElement>(null)
-  const [autoScroll, setAutoScroll] = useState(true)
+  const isRunning = state.status?.running ?? false
 
+  const [tab, setTab] = useState<Tab>('events')
+  const [logs, setLogs] = useState<RunLogEntry[]>([])
+  const [logsLoading, setLogsLoading] = useState(false)
+  const maxSeqRef = useRef(0)
+
+  const eventsListRef = useRef<HTMLDivElement>(null)
+  const logsListRef = useRef<HTMLDivElement>(null)
+  const [autoScrollEvents, setAutoScrollEvents] = useState(true)
+  const [autoScrollLogs, setAutoScrollLogs] = useState(true)
+
+  // Auto-scroll events list
   useEffect(() => {
-    if (autoScroll && listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight
-  }, [events, autoScroll])
+    if (autoScrollEvents && eventsListRef.current) {
+      eventsListRef.current.scrollTop = eventsListRef.current.scrollHeight
+    }
+  }, [events, autoScrollEvents])
 
-  const onScroll = () => {
-    if (!listRef.current) return
-    const { scrollTop, scrollHeight, clientHeight } = listRef.current
-    const atBottom = scrollTop + clientHeight >= scrollHeight - 10
-    setAutoScroll(atBottom)
+  // Auto-scroll logs list
+  useEffect(() => {
+    if (autoScrollLogs && logsListRef.current) {
+      logsListRef.current.scrollTop = logsListRef.current.scrollHeight
+    }
+  }, [logs, autoScrollLogs])
+
+  const onScrollEvents = useCallback(() => {
+    if (!eventsListRef.current) return
+    const { scrollTop, scrollHeight, clientHeight } = eventsListRef.current
+    setAutoScrollEvents(scrollTop + clientHeight >= scrollHeight - 10)
+  }, [])
+
+  const onScrollLogs = useCallback(() => {
+    if (!logsListRef.current) return
+    const { scrollTop, scrollHeight, clientHeight } = logsListRef.current
+    setAutoScrollLogs(scrollTop + clientHeight >= scrollHeight - 10)
+  }, [])
+
+  // Poll for run logs when the logs tab is active
+  useEffect(() => {
+    if (tab !== 'logs' || !api.logs) return
+
+    let cancelled = false
+    const fetchLogs = async () => {
+      if (cancelled) return
+      setLogsLoading(true)
+      try {
+        const sinceSeq = maxSeqRef.current > 0 ? maxSeqRef.current : undefined
+        const resp = await api.logs!(sinceSeq)
+        if (cancelled) return
+        if (resp.items && resp.items.length > 0) {
+          setLogs((prev) => {
+            const existingIds = new Set(prev.map((l) => l.id))
+            const newLogs = resp.items.filter((l: RunLogEntry) => !existingIds.has(l.id))
+            if (newLogs.length === 0) return prev
+            const merged = [...prev, ...newLogs].sort((a, b) => a.seq - b.seq)
+            const maxSeq = merged[merged.length - 1]?.seq ?? 0
+            if (maxSeq > maxSeqRef.current) maxSeqRef.current = maxSeq
+            return merged
+          })
+        }
+      } catch (err) {
+        console.error('Failed to fetch run logs:', err)
+      } finally {
+        if (!cancelled) setLogsLoading(false)
+      }
+    }
+
+    void fetchLogs()
+    const interval = setInterval(fetchLogs, 3000)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [tab, api, isRunning])
+
+  const hasLogs = !!api.logs
+  const activeTab = hasLogs ? tab : 'events'
+
+  const levelClass = (level: string) => {
+    if (level === 'error') return 'log-level log-level--error'
+    if (level === 'warning') return 'log-level log-level--warning'
+    return 'log-level log-level--info'
+  }
+
+  const sourceLabel = (source: string) => {
+    if (source === 'sandbox') return 'SANDBOX'
+    if (source === 'system') return 'SYSTEM'
+    if (source === 'runstream') return 'STREAM'
+    return source.toUpperCase()
   }
 
   return (
@@ -23,36 +106,112 @@ export default function Footer() {
       <div className="footer-content">
         <header className="footer-header">
           <div className="footer-title-section">
-            <h2 className="footer-title">Event Log</h2>
-            <div className="event-stats">
-              <div className="stat-item"><span className="stat-label">Total:</span><span className="stat-value">{events.length}</span></div>
-            </div>
+            {hasLogs ? (
+              <div className="footer-tabs">
+                <button
+                  className={`footer-tab ${activeTab === 'events' ? 'footer-tab--active' : ''}`}
+                  onClick={() => setTab('events')}
+                >
+                  Events
+                  {events.length > 0 && <span className="footer-tab-badge">{events.length}</span>}
+                </button>
+                <button
+                  className={`footer-tab ${activeTab === 'logs' ? 'footer-tab--active' : ''}`}
+                  onClick={() => setTab('logs')}
+                >
+                  Logs
+                  {logs.length > 0 && <span className="footer-tab-badge">{logs.length}</span>}
+                </button>
+              </div>
+            ) : (
+              <>
+                <h2 className="footer-title">Event Log</h2>
+                <div className="event-stats">
+                  <div className="stat-item"><span className="stat-label">Total:</span><span className="stat-value">{events.length}</span></div>
+                </div>
+              </>
+            )}
           </div>
           <div className="footer-actions">
-            {events.length > 0 && <button className="btn btn-small btn-outline" onClick={() => actions.setEvents([])}>Clear</button>}
+            {activeTab === 'events' && events.length > 0 && (
+              <button className="btn btn-small btn-outline" onClick={() => actions.setEvents([])}>Clear</button>
+            )}
+            {activeTab === 'logs' && logs.length > 0 && (
+              <button className="btn btn-small btn-outline" onClick={() => { setLogs([]); maxSeqRef.current = 0 }}>Clear</button>
+            )}
           </div>
         </header>
         <div className="footer-body">
-          {events.length === 0 ? (
-            <div className="event-list empty"><div className="empty-state"><p>No events recorded yet</p></div></div>
-          ) : (
-            <div className="event-list-container">
-              <div className="event-list-header">
-                <span className="event-count">{events.length} event{events.length !== 1 ? 's' : ''}</span>
-                <div className="event-controls">
-                  <button className={`btn btn-small ${autoScroll ? 'active' : ''}`} onClick={() => setAutoScroll(!autoScroll)} title={autoScroll ? 'Auto-scroll enabled' : 'Auto-scroll disabled'}>📌</button>
-                  <button className="btn btn-small" onClick={() => { if (listRef.current) { listRef.current.scrollTop = listRef.current.scrollHeight; setAutoScroll(true) } }} title="Scroll to bottom">⬇️</button>
-                </div>
-              </div>
-              <div ref={listRef} className="event-list" onScroll={onScroll}>
-                {events.slice().reverse().map((ev) => (
-                  <div key={ev.id} className="event-item">
-                    <time className="event-timestamp" dateTime={ev.ts}>{ev.ts}</time>
-                    <div className="event-message">{ev.event}</div>
+          {activeTab === 'events' && (
+            <>
+              {events.length === 0 ? (
+                <div className="event-list empty">
+                  <div className="empty-state">
+                    <p>No events recorded yet</p>
+                    {state.status?.phase_message && (
+                      <p className="empty-state-phase">{state.status.phase_message}</p>
+                    )}
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
+              ) : (
+                <div className="event-list-container">
+                  <div className="event-list-header">
+                    <span className="event-count">{events.length} event{events.length !== 1 ? 's' : ''}</span>
+                    <div className="event-controls">
+                      <button className={`btn btn-small ${autoScrollEvents ? 'active' : ''}`} onClick={() => setAutoScrollEvents(!autoScrollEvents)} title={autoScrollEvents ? 'Auto-scroll enabled' : 'Auto-scroll disabled'}>
+                        {'\u{1F4CC}'}
+                      </button>
+                    </div>
+                  </div>
+                  <div ref={eventsListRef} className="event-list" onScroll={onScrollEvents}>
+                    {events.slice().reverse().map((ev) => (
+                      <div key={ev.id} className={`event-item ${ev.event === 'phase' ? 'event-item--phase' : ''}`}>
+                        <time className="event-timestamp" dateTime={ev.ts}>{ev.ts}</time>
+                        <div className="event-message">
+                          {ev.event === 'phase' && ev.payload?.message
+                            ? String(ev.payload.message)
+                            : ev.event}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+          {activeTab === 'logs' && (
+            <>
+              {logs.length === 0 ? (
+                <div className="event-list empty">
+                  <div className="empty-state">
+                    <p>{logsLoading ? 'Loading logs...' : 'No logs available yet'}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="event-list-container">
+                  <div className="event-list-header">
+                    <span className="event-count">{logs.length} log entr{logs.length !== 1 ? 'ies' : 'y'}</span>
+                    <div className="event-controls">
+                      <button className={`btn btn-small ${autoScrollLogs ? 'active' : ''}`} onClick={() => setAutoScrollLogs(!autoScrollLogs)} title={autoScrollLogs ? 'Auto-scroll enabled' : 'Auto-scroll disabled'}>
+                        {'\u{1F4CC}'}
+                      </button>
+                    </div>
+                  </div>
+                  <div ref={logsListRef} className="event-list" onScroll={onScrollLogs}>
+                    {logs.map((log) => (
+                      <div key={log.id} className={`event-item log-item log-item--${log.level}`}>
+                        <div className="log-item-header">
+                          <time className="event-timestamp" dateTime={log.ts}>{log.ts}</time>
+                          <span className={`log-source log-source--${log.source}`}>{sourceLabel(log.source)}</span>
+                          <span className={levelClass(log.level)}>{log.level.toUpperCase()}</span>
+                        </div>
+                        {log.message && <div className="event-message">{log.message}</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

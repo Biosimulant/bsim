@@ -49,7 +49,7 @@ export default function Timeseries({ data, isFullscreen }: { data: { series?: Se
           </g>
         ))}
         {series.map((s, si) => (
-          <polyline key={si} points={poly(s)} fill="none" stroke={si === 0 ? '#2563eb' : si === 1 ? '#dc2626' : '#10b981'} strokeWidth={2} />
+          <polyline key={si} points={poly(s)} fill="none" stroke={si === 0 ? 'var(--primary)' : si === 1 ? 'var(--danger)' : 'var(--accent)'} strokeWidth={2} />
         ))}
       </svg>
     </div>
