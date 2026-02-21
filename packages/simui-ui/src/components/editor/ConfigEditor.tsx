@@ -148,12 +148,12 @@ const ConfigEditor: React.FC<ConfigEditorProps> = ({ api, initialConfigPath }) =
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
 
-  // Dark theme colors
-  const bg = '#0f1628'
-  const surface = '#11182b'
-  const text = '#e6eaf2'
-  const muted = '#9aa6c1'
-  const border = '#1e2a44'
+  // Dark theme colors - using CSS variables for consistency
+  const bg = 'var(--bg)'
+  const surface = 'var(--surface)'
+  const text = 'var(--text)'
+  const muted = 'var(--muted)'
+  const border = 'var(--border)'
   const accent = 'var(--primary)'
 
   const nodeTypes: NodeTypes = useMemo(() => ({ moduleNode: ModuleNode }), [])
