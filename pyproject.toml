@@ -42,23 +42,30 @@ extra-dependencies = [
 check = "mypy --install-types --non-interactive {args:src/biosim tests}"
 
 [tool.coverage.run]
-source_pkgs = ["biosim", "tests"]
+source_pkgs = ["biosim"]
 branch = true
 parallel = true
 omit = [
   "src/biosim/__about__.py",
+  "*/tests/*",
 ]
 
 [tool.coverage.paths]
 biosim = ["src/biosim", "*/biosim/src/biosim"]
-tests = ["tests", "*/biosim/tests"]
 
 [tool.coverage.report]
 exclude_lines = [
   "no cov",
+  "pragma: no cover",
   "if __name__ == .__main__.:",
   "if TYPE_CHECKING:",
+  "def __repr__",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "@abstractmethod",
 ]
+precision = 2
+show_missing = true
 
 [tool.pytest.ini_options]
 testpaths = [

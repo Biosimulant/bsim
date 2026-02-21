@@ -115,7 +115,7 @@ def introspect_module(cls: Type[BioModule], class_path: str, category: str = "un
                     if match:
                         ports = match.group(1)
                         outputs = {p.strip().strip('"\'') for p in ports.split(",")}
-        except Exception:
+        except Exception:  # pragma: no cover - defensive: source parsing may fail
             pass
 
     # Get constructor arguments

@@ -95,7 +95,7 @@ class BioWorld:
             raise ValueError(f"Module name already registered: {name}")
         try:
             setattr(module, "_world_name", name)
-        except Exception:
+        except Exception:  # pragma: no cover - defensive: setattr may fail on frozen modules
             pass
         module_min_dt = min_dt if min_dt is not None else getattr(module, "min_dt", None)
         if module_min_dt is None or module_min_dt <= 0:
@@ -166,7 +166,7 @@ class BioWorld:
         for conn in self._connections_by_target.get(target_name, []):
             source_outputs = self._signal_store.get(conn.source_module, {})
             source_signal = source_outputs.get(conn.source_signal)
-            if source_signal is None:
+            if source_signal is None:  # pragma: no cover - defensive: signal should exist if routed
                 continue
             if source_signal.metadata.kind == "event":
                 if source_signal.time <= conn.last_event_time:
