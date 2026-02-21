@@ -13,3 +13,11 @@ repos:
     hooks:
     -   id: detect-secrets
         args: ['--baseline', '.secrets.baseline']
+-   repo: local
+    hooks:
+    -   id: pytest-biosim
+        name: Run biosim tests
+        entry: python -m pytest tests/ --tb=short -q
+        language: system
+        pass_filenames: false
+        always_run: true

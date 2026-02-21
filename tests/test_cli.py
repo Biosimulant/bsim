@@ -45,26 +45,54 @@ class TestLoadConfig:
         with pytest.raises(SystemExit):
             load_config(p)
 
-    def test_yaml_no_pyyaml(self, tmp_path):
+    def test_yaml_import_error(self, tmp_path):
+        """yaml ImportError should print error and sys.exit(1)."""
         p = tmp_path / "cfg.yaml"
         p.write_text("x: 1\n")
-        with patch.dict(sys.modules, {"yaml": None}):
-            # Re-importing to trigger the import error
-            import importlib
-            import biosim.__main__ as cli_mod
-            importlib.reload(cli_mod)
-            # The function tries import yaml, but since we patched it,
-            # this test would need yaml to actually be missing.
-            # Instead, test the exit path by mocking
-            pass
+        import builtins
+        real_import = builtins.__import__
+        def fake_import(name, *args, **kwargs):
+            if name == "yaml":
+                raise ImportError("No module named 'yaml'")
+            return real_import(name, *args, **kwargs)
+        with patch("builtins.__import__", side_effect=fake_import):
+            with pytest.raises(SystemExit) as exc_info:
+                load_config(p)
+            assert exc_info.value.code == 1
 
-    def test_toml_no_tomllib(self, tmp_path, monkeypatch):
+    def test_toml_all_imports_fail(self, tmp_path):
+        """toml ImportError should print error and sys.exit(1)."""
         p = tmp_path / "cfg.toml"
         p.write_text('[meta]\ntitle = "test"\n')
-        # This path is already handled by pragma: no cover in the source
-        # Just verify normal path works
-        result = load_config(p)
-        assert "meta" in result
+        import builtins
+        real_import = builtins.__import__
+        def fake_import(name, *args, **kwargs):
+            if name in ("tomllib", "tomli"):
+                raise ImportError(f"No module named '{name}'")
+            return real_import(name, *args, **kwargs)
+        with patch("builtins.__import__", side_effect=fake_import):
+            with pytest.raises(SystemExit) as exc_info:
+                load_config(p)
+            assert exc_info.value.code == 1
+
+    def test_toml_tomli_fallback(self, tmp_path):
+        """When tomllib fails but tomli succeeds."""
+        p = tmp_path / "cfg.toml"
+        p.write_text('[meta]\ntitle = "test"\n')
+        import builtins
+        real_import = builtins.__import__
+        def fake_import(name, *args, **kwargs):
+            if name == "tomllib":
+                raise ImportError("No module named 'tomllib'")
+            return real_import(name, *args, **kwargs)
+        # Only test if tomli is available
+        try:
+            import tomli
+        except ImportError:
+            pytest.skip("tomli not available")
+        with patch("builtins.__import__", side_effect=fake_import):
+            result = load_config(p)
+        assert result["meta"]["title"] == "test"
 
 
 class TestCreateWorld:
@@ -135,6 +163,27 @@ class TestRunSimui:
                     host="127.0.0.1",
                     open_browser=False,
                 )
+
+    def test_simui_success(self, biosim, capsys):
+        """run_simui should create Interface and call launch."""
+        from biosim.__main__ import run_simui
+        from biosim.simui.interface import Interface
+        mock_interface = MagicMock()
+        with patch.object(Interface, "launch") as mock_launch:
+            with patch.object(Interface, "mount"):
+                run_simui(
+                    biosim.BioWorld(),
+                    {"meta": {"title": "Test Sim", "description": "Desc"}},
+                    config_path=Path("/tmp/test.yaml"),
+                    duration=5.0,
+                    tick_dt=0.1,
+                    port=9999,
+                    host="0.0.0.0",
+                    open_browser=True,
+                )
+        mock_launch.assert_called_once_with(host="0.0.0.0", port=9999, open_browser=True)
+        captured = capsys.readouterr()
+        assert "Starting SimUI" in captured.out
 
 
 class TestMain:

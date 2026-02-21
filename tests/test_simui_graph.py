@@ -139,6 +139,28 @@ wiring:
         assert len(graph.nodes) == 0
         assert len(graph.edges) == 0
 
+    def test_module_with_registry_ports(self):
+        """When a module is in the registry, ports should come from the spec."""
+        from biosim.simui.registry import ModuleSpec, get_default_registry
+        reg = get_default_registry()
+        spec = ModuleSpec(
+            class_path="test.RegMod", name="RegMod", category="test",
+            inputs={"sig_in"}, outputs={"sig_out"}, args=[],
+        )
+        reg._registry["test.RegMod"] = spec
+        try:
+            yaml_content = """
+modules:
+  rm:
+    class: test.RegMod
+"""
+            graph = yaml_to_graph(yaml_content)
+            rm = next(n for n in graph.nodes if n.id == "rm")
+            assert "sig_in" in rm.inputs
+            assert "sig_out" in rm.outputs
+        finally:
+            del reg._registry["test.RegMod"]
+
 
 class TestGraphToYaml:
     def test_simple(self):

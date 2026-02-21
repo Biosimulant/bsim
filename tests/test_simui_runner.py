@@ -1,5 +1,6 @@
 """Tests for biosim.simui.runner – 100% coverage."""
 import time
+from unittest.mock import patch
 import pytest
 from biosim.world import BioWorld
 from biosim.simui.runner import SimulationManager, RunStatus, _ts
@@ -135,3 +136,46 @@ class TestSimulationManager:
         world = _make_world_with_module()
         mgr = SimulationManager(world)
         mgr.join()  # should be a no-op
+
+    def test_request_stop_world_error(self):
+        """request_stop should not crash if world.request_stop fails."""
+        world = _make_world_with_module(slow=True)
+        mgr = SimulationManager(world)
+        mgr.start_run(duration=100.0, tick_dt=0.01)
+        time.sleep(0.05)
+        with patch.object(world, "request_stop", side_effect=RuntimeError("oops")):
+            mgr.request_stop()
+        mgr.join(timeout=5.0)
+
+    def test_pause_world_error(self):
+        """pause should not crash if world.request_pause fails."""
+        world = _make_world_with_module(slow=True)
+        mgr = SimulationManager(world)
+        mgr.start_run(duration=100.0, tick_dt=0.01)
+        time.sleep(0.1)
+        with patch.object(world, "request_pause", side_effect=RuntimeError("oops")):
+            mgr.pause()
+        mgr.request_stop()
+        mgr.join(timeout=5.0)
+
+    def test_resume_world_error(self):
+        """resume should not crash if world.request_resume fails."""
+        world = _make_world_with_module(slow=True)
+        mgr = SimulationManager(world)
+        mgr.start_run(duration=100.0, tick_dt=0.01)
+        time.sleep(0.1)
+        mgr.pause()
+        time.sleep(0.05)
+        with patch.object(world, "request_resume", side_effect=RuntimeError("oops")):
+            mgr.resume()
+        mgr.request_stop()
+        mgr.join(timeout=5.0)
+
+    def test_reset_while_running_and_join(self):
+        """reset while running should stop, join thread, then reset status."""
+        world = _make_world_with_module(slow=True)
+        mgr = SimulationManager(world)
+        mgr.start_run(duration=100.0, tick_dt=0.01)
+        time.sleep(0.1)
+        mgr.reset()
+        assert mgr.status()["running"] is False

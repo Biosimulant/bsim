@@ -385,3 +385,89 @@ class TestListFiles:
         client = _make_app()
         r = client.get("/api/editor/files", params={"path": "file.yaml"})
         assert r.status_code == 400
+
+    def test_list_files_exception(self, tmp_path, monkeypatch):
+        """list_files should return 400 on unexpected errors."""
+        monkeypatch.chdir(tmp_path)
+        client = _make_app()
+        with patch("biosim.simui.editor_api._resolve_config_path", side_effect=RuntimeError("disk error")):
+            r = client.get("/api/editor/files", params={"path": "."})
+            assert r.status_code == 400
+
+
+class TestResolveConfigPathBiosim:
+    def test_path_under_biosim_package(self, tmp_path, monkeypatch):
+        """Path under the biosim package directory should be allowed via biosim check."""
+        import biosim
+        bsim_parent = Path(biosim.__file__).parent.parent
+        # Change cwd to tmp_path so bsim_parent is NOT under cwd
+        monkeypatch.chdir(tmp_path)
+        # Also clear BSIM_CONFIG_PATH
+        monkeypatch.delenv("BSIM_CONFIG_PATH", raising=False)
+        # Use a path that's under bsim_parent (but not under cwd)
+        test_file = bsim_parent / "examples" / "test_resolve_biosim.yaml"
+        test_file.parent.mkdir(parents=True, exist_ok=True)
+        test_file.write_text("x: 1")
+        try:
+            result = _resolve_config_path(str(test_file))
+            assert result == test_file.resolve()
+        finally:
+            test_file.unlink(missing_ok=True)
+
+
+class TestValidatePortChecks:
+    def test_validate_unknown_output_port(self):
+        """Validate should flag edges with unknown output ports."""
+        from biosim.simui.registry import ModuleSpec, ModuleRegistry, get_default_registry
+        client = _make_app()
+        graph = {
+            "nodes": [
+                {"id": "a", "type": "test.Mod", "position": {"x": 0, "y": 0},
+                 "data": {"args": {}, "inputs": ["in1"], "outputs": ["out1"]}},
+                {"id": "b", "type": "test.Mod", "position": {"x": 100, "y": 0},
+                 "data": {"args": {}, "inputs": ["in1"], "outputs": ["out1"]}},
+            ],
+            "edges": [{"id": "e1", "source": "a", "sourceHandle": "bad_port",
+                        "target": "b", "targetHandle": "bad_port"}],
+        }
+        # Register a module spec with known ports
+        reg = get_default_registry()
+        spec = ModuleSpec(
+            class_path="test.Mod", name="Mod", category="test",
+            inputs={"in1"}, outputs={"out1"}, args=[],
+        )
+        reg._registry["test.Mod"] = spec
+        try:
+            r = client.post("/api/editor/validate", json=graph)
+            data = r.json()
+            assert data["valid"] is False
+            errors = data["errors"]
+            assert any("bad_port" in e for e in errors)
+        finally:
+            del reg._registry["test.Mod"]
+
+
+class TestSaveConfigHTTPException:
+    def test_save_reraises_http_exception(self, tmp_path, monkeypatch):
+        """save_config should re-raise HTTPException from inner call."""
+        from fastapi import HTTPException as FastHTTPException
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "test.yaml").write_text("x: 1")
+        client = _make_app()
+        graph = {"nodes": [], "edges": [], "meta": {}}
+        with patch("biosim.simui.editor_api.json_to_graph", side_effect=FastHTTPException(status_code=409, detail="conflict")):
+            r = client.put("/api/editor/config", json={"path": "test.yaml", "graph": graph})
+            assert r.status_code == 409
+
+
+class TestApplyConfigHTTPException:
+    def test_apply_reraises_http_exception(self, tmp_path, monkeypatch):
+        """apply_config should re-raise HTTPException from inner call."""
+        from fastapi import HTTPException as FastHTTPException
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "test.yaml").write_text("x: 1")
+        client = _make_app(reload_fn=lambda p: True)
+        graph = {"nodes": [], "edges": [], "meta": {}}
+        with patch("biosim.simui.editor_api.json_to_graph", side_effect=FastHTTPException(status_code=409, detail="conflict")):
+            r = client.post("/api/editor/apply", json={"graph": graph, "save_path": "test.yaml"})
+            assert r.status_code == 409

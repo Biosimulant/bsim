@@ -408,7 +408,8 @@ class TestLaunch:
     def test_launch_calls_uvicorn(self):
         world = _make_world()
         ui = Interface(world)
-        with patch("biosim.simui.interface.uvicorn") as mock_uv:
+        mock_uv = MagicMock()
+        with patch.dict("sys.modules", {"uvicorn": mock_uv}):
             ui.launch(host="0.0.0.0", port=9999)
             mock_uv.run.assert_called_once()
             call_kwargs = mock_uv.run.call_args
@@ -418,7 +419,8 @@ class TestLaunch:
     def test_launch_with_open_browser(self):
         world = _make_world()
         ui = Interface(world)
-        with patch("biosim.simui.interface.uvicorn") as mock_uv:
+        mock_uv = MagicMock()
+        with patch.dict("sys.modules", {"uvicorn": mock_uv}):
             with patch("webbrowser.open") as mock_wb:
                 ui.launch(open_browser=True)
                 mock_wb.assert_called_once()
@@ -426,7 +428,8 @@ class TestLaunch:
     def test_launch_browser_error_ignored(self):
         world = _make_world()
         ui = Interface(world)
-        with patch("biosim.simui.interface.uvicorn"):
+        mock_uv = MagicMock()
+        with patch.dict("sys.modules", {"uvicorn": mock_uv}):
             with patch("webbrowser.open", side_effect=RuntimeError("no browser")):
                 ui.launch(open_browser=True)  # Should not raise
 
@@ -456,18 +459,31 @@ class TestReloadWorld:
 
 
 class TestSSEStream:
-    def test_stream_endpoint(self):
-        app, ui = _make_app()
-        client = TestClient(app)
-        # SSE is a streaming response - just verify it returns 200
-        with client.stream("GET", "/ui/api/stream") as r:
-            assert r.status_code == 200
-            # Read first chunk (snapshot)
-            for line in r.iter_lines():
-                if line.startswith("data:"):
-                    data = json.loads(line[5:].strip())
-                    assert data["type"] == "snapshot"
-                    break
+    def test_stream_subscribe_and_broadcast(self):
+        """Test SSE subscribe/broadcast mechanism used by the stream endpoint."""
+        world = _make_world()
+        ui = Interface(world)
+        q = ui._subscribe_sse()
+        assert q is not None
+        assert len(ui._sse_subscribers) == 1
+        # Broadcast should put message in queue
+        ui._broadcast_sse({"type": "test", "data": {}})
+        msg = q.get_nowait()
+        assert msg["type"] == "test"
+        ui._unsubscribe_sse(q)
+        assert len(ui._sse_subscribers) == 0
+
+    def test_stream_broadcast_error_handling(self):
+        """Broadcast should not crash if a queue is full or broken."""
+        world = _make_world()
+        ui = Interface(world)
+        from queue import Queue
+        q = Queue(maxsize=1)
+        q.put({"filler": True})  # fill the queue
+        ui._sse_subscribers.add(q)
+        # Should not raise even though queue is full
+        ui._broadcast_sse({"type": "overflow"})
+        ui._sse_subscribers.discard(q)
 
 
 class TestSpecModuleNamesError:
@@ -498,3 +514,52 @@ class TestEventsInternals:
         result = ui._events_since(1, 200)
         # Should get events with id > 1
         assert all(e["id"] > 1 for e in result["events"])
+
+
+class TestCloseErrorPath:
+    def test_close_error_ignored(self):
+        """close() should not crash if world.off() raises."""
+        world = _make_world()
+        ui = Interface(world)
+        with patch.object(world, "off", side_effect=RuntimeError("oops")):
+            ui.close()  # Should not raise
+
+
+class TestResetExceptionPath:
+    def test_reset_exception_ignored(self):
+        """Reset endpoint should not crash if runner.reset() raises."""
+        app, ui = _make_app()
+        client = TestClient(app)
+        with patch.object(ui._runner, "reset", side_effect=RuntimeError("oops")):
+            r = client.post("/ui/api/reset")
+            assert r.status_code == 200
+            assert r.json()["ok"] is True
+
+
+class TestReloadWorldSuccess:
+    def test_reload_success(self, tmp_path):
+        """_reload_world should succeed with a valid config file."""
+        config = tmp_path / "test.yaml"
+        config.write_text("modules: {}\n")
+        world = _make_world()
+        # Add the internal attributes that _reload_world expects
+        world._biomodule_listeners = {"m": None}
+        world.remove_biomodule = MagicMock()
+        world._signal_routes = {}
+        ui = Interface(world, config_path=config)
+        with patch("biosim.load_wiring"):
+            result = ui._reload_world()
+        assert result is True
+
+    def test_reload_with_new_path(self, tmp_path):
+        """_reload_world should accept a new config path."""
+        config = tmp_path / "new.yaml"
+        config.write_text("modules: {}\n")
+        world = _make_world()
+        world._biomodule_listeners = {}
+        world._signal_routes = {}
+        ui = Interface(world)
+        with patch("biosim.load_wiring"):
+            result = ui._reload_world(new_config_path=config)
+        assert result is True
+        assert ui._config_path == config

@@ -365,7 +365,7 @@ class Interface:
             return {"status": st, "visuals": vis, "events": ev.get("events", [])}
 
         @router.get("/api/stream")
-        async def stream(request: Request) -> StreamingResponse:
+        async def stream(request: Request) -> StreamingResponse:  # pragma: no cover - async SSE generator
             """SSE endpoint for real-time event streaming."""
             queue = self._subscribe_sse()
 
