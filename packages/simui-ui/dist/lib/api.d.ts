@@ -1,4 +1,4 @@
-import type { EventRecord, ModuleVisuals, RunStatus, Snapshot, UiSpec } from "../types/api";
+import type { EventRecord, ModuleVisuals, RunLogEntry, RunStatus, Snapshot, UiSpec } from "../types/api";
 export type SSEMessage = {
     type: "snapshot" | "event" | "status" | "tick" | "heartbeat";
     data: unknown;
@@ -107,6 +107,10 @@ export interface SimulationApi {
     resume: () => Promise<unknown>;
     reset: () => Promise<unknown>;
     subscribeSSE: (onMessage: (msg: SSEMessage) => void, onError?: (err: Event) => void) => SSESubscription;
+    logs?: (sinceSeq?: number) => Promise<{
+        items: RunLogEntry[];
+        total: number;
+    }>;
     editor?: SimulationEditorApi;
 }
 export type Api = SimulationApi;

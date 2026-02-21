@@ -518,3 +518,169 @@
 .ticklbl { fill: var(--muted); font-size: 11px; }
 .bar { fill: var(--accent); opacity: .85; }
 .xlbl { fill: var(--muted); font-size: 11px; }
+
+/* ============================================================ */
+/* MOBILE RESPONSIVE STYLES */
+/* ============================================================ */
+
+/* Mobile: Single column layout, sidebars become drawers */
+@media (max-width: 1023px) {
+  /* Layout: Mobile single column */
+  .app-layout {
+    grid-template-areas:
+      "header"
+      "main";
+    grid-template-columns: 1fr;
+  }
+
+  /* Sidebars as fixed drawers */
+  .app-sidebar-left,
+  .app-sidebar-right {
+    position: fixed;
+    top: var(--header-h);
+    bottom: 0;
+    width: 85vw;
+    max-width: 320px;
+    z-index: 40;
+    transition: transform 0.3s ease;
+    grid-area: unset;
+  }
+
+  .app-sidebar-left {
+    left: 0;
+    transform: translateX(-100%);
+  }
+
+  .app-sidebar-left.open {
+    transform: translateX(0);
+  }
+
+  .app-sidebar-right {
+    right: 0;
+    transform: translateX(100%);
+  }
+
+  .app-sidebar-right.open {
+    transform: translateX(0);
+  }
+
+  /* Header adjustments for mobile */
+  .app-header {
+    padding: 0 var(--gap-2);
+  }
+
+  .app-title {
+    font-size: 16px;
+  }
+
+  /* Touch-friendly button sizes */
+  .btn {
+    padding: 10px 16px;
+    font-size: 14px;
+    min-height: 44px;
+  }
+
+  .btn-small {
+    padding: 8px 12px;
+    font-size: 13px;
+    min-height: 40px;
+  }
+
+  /* Tabs with larger touch targets */
+  .main-tab {
+    padding: 10px 16px;
+    font-size: 13px;
+    min-height: 44px;
+  }
+
+  .footer-tab {
+    padding: 8px 12px;
+    font-size: 12px;
+    min-height: 40px;
+  }
+
+  /* Sidebar panels with larger touch targets */
+  .sidebar-panel-header {
+    padding: 12px 14px;
+    min-height: 44px;
+  }
+
+  .control-group-header {
+    padding: 10px 12px;
+    min-height: 44px;
+  }
+
+  /* Visualization grid: single column on mobile */
+  .visualizations-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Footer/events panel adjustments */
+  .footer-header {
+    padding: 10px 12px;
+  }
+
+  .event-item {
+    padding: 10px 8px;
+  }
+
+  /* Main tabs: horizontal scroll on mobile */
+  .main-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: var(--gap-2) var(--gap-3);
+  }
+
+  .main-tab {
+    white-space: nowrap;
+  }
+}
+
+/* Backdrop for mobile drawers */
+.drawer-backdrop {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+    z-index: 30;
+    display: block;
+  }
+}
+
+/* Desktop: Restore original 3-column layout */
+@media (min-width: 1024px) {
+  .app-layout {
+    grid-template-areas:
+      "header header header"
+      "left main right";
+    grid-template-columns: var(--sidebar-width) 1fr var(--sidebar-right-width);
+  }
+
+  .app-sidebar-left,
+  .app-sidebar-right {
+    position: static;
+    transform: none;
+  }
+
+  .drawer-backdrop {
+    display: none !important;
+  }
+}
+
+/* Tablet: Responsive visualization grid */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .visualizations-grid {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .visualizations-grid {
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  }
+}

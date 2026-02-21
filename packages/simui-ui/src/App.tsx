@@ -34,6 +34,8 @@ function SimulationView({
   const api = useApi();
   const { state, actions } = useUi();
   const [connected, setConnected] = useState(false);
+  const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
+  const [rightDrawerOpen, setRightDrawerOpen] = useState(false);
   const sseRef = useRef<SSESubscription | null>(null);
   const storageKeyRef = useRef<string | null>(null);
 
@@ -211,23 +213,60 @@ function SimulationView({
     <>
       <header className="app-header">
         <div className="app-header-left">
+          {/* Mobile menu button for left sidebar */}
+          <button
+            className="btn btn-small lg:hidden"
+            style={{ display: window.innerWidth >= 1024 ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px' }}
+            onClick={() => setLeftDrawerOpen(!leftDrawerOpen)}
+            title="Toggle controls"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
           {headerLeft}
           <h1 className="app-title">{state.spec?.title || "BioSim UI"}</h1>
         </div>
         <div className="app-header-right">
           {headerRight}
           <div className="app-status">{connected && <div className="sse-indicator" title="Stream Connected" />}</div>
+          {/* Mobile menu button for right sidebar */}
+          <button
+            className="btn btn-small lg:hidden"
+            style={{ display: window.innerWidth >= 1024 ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px' }}
+            onClick={() => setRightDrawerOpen(!rightDrawerOpen)}
+            title="Toggle events"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+          </button>
         </div>
       </header>
-      <aside className="app-sidebar-left">
+      <aside className={`app-sidebar-left ${leftDrawerOpen ? 'open' : ''}`}>
         <Sidebar onRun={run} onPause={pause} onResume={resume} onReset={reset} />
       </aside>
       <main className="app-main">
         <MainContent chatAdapter={chatAdapter} />
       </main>
-      <aside className="app-sidebar-right">
+      <aside className={`app-sidebar-right ${rightDrawerOpen ? 'open' : ''}`}>
         <Footer />
       </aside>
+
+      {/* Backdrop for mobile */}
+      {(leftDrawerOpen || rightDrawerOpen) && (
+        <div
+          className="drawer-backdrop"
+          onClick={() => {
+            setLeftDrawerOpen(false);
+            setRightDrawerOpen(false);
+          }}
+        />
+      )}
     </>
   );
 }
