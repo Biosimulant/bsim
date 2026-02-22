@@ -14,6 +14,7 @@ from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+from ..__about__ import __version__
 from ..world import BioWorld, WorldEvent
 from .runner import SimulationManager
 from .editor_api import build_editor_router
@@ -264,6 +265,7 @@ class Interface:
             outputs = [o for o in outputs if o is not None]
             return {
                 "version": "2",
+                "bsim_version": __version__,
                 "title": self._title,
                 "description": self._description,
                 "controls": controls,

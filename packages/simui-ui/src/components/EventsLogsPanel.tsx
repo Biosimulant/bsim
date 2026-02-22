@@ -10,6 +10,7 @@ export default function EventsLogsPanel() {
   const { state, actions } = useUi()
   const events = state.events || []
   const isRunning = state.status?.running ?? false
+  const bsimVersion = state.spec?.bsim_version
 
   const [tab, setTab] = useState<Tab>('events')
   const [logs, setLogs] = useState<RunLogEntry[]>([])
@@ -189,6 +190,11 @@ export default function EventsLogsPanel() {
                 </div>
               </>
             )}
+            {bsimVersion && (
+              <span className="footer-version-chip" title={`BioSim library version ${bsimVersion}`}>
+                bsim v{bsimVersion}
+              </span>
+            )}
           </div>
           <div className="footer-actions">
             {activeTab === 'events' && events.length > 0 && (
@@ -204,11 +210,22 @@ export default function EventsLogsPanel() {
             {activeTab === 'logs' && logs.length > 0 && (
               <>
                 <button
-                  className="btn btn-small btn-primary"
+                  className="btn btn-small btn-primary footer-icon-button"
                   onClick={handleDownloadLogs}
                   disabled={logsDownloading}
+                  title={logsDownloading ? 'Downloading logs...' : 'Download logs'}
+                  aria-label={logsDownloading ? 'Downloading logs' : 'Download logs'}
                 >
-                  {logsDownloading ? 'Downloading...' : 'Download'}
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M12 3v11m0 0 4-4m-4 4-4-4M5 19h14"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
                 </button>
                 <button className="btn btn-small btn-outline" onClick={() => { setLogs([]); maxSeqRef.current = 0 }}>
                   Clear

@@ -50,6 +50,7 @@ def test_spec_version_and_modules(biosim, fastapi_client):
     assert r.status_code == 200
     data = r.json()
     assert data["version"] == "2"
+    assert data["bsim_version"] == biosim.__version__
     assert set(data.get("modules", [])) == {"m1", "m2"}
 
 

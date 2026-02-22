@@ -37,6 +37,7 @@ export type UiCapabilities = {
 
 export type UiSpec = {
   version: string
+  bsim_version?: string
   title: string
   description?: string | null
   controls: Control[]

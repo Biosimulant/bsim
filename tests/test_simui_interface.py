@@ -8,6 +8,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from biosim import __version__
 from biosim.world import BioWorld, WorldEvent
 from biosim.simui.interface import (
     Interface, Number, Button, EventLog, VisualsPanel,
@@ -115,6 +116,7 @@ class TestSpecEndpoint:
         assert r.status_code == 200
         data = r.json()
         assert data["version"] == "2"
+        assert data["bsim_version"] == __version__
         assert "m" in data["modules"]
         assert data["title"] == "BioSim UI"
 
