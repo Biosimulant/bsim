@@ -6,7 +6,7 @@ import type { SSEMessage, SSESubscription, SimulationApi } from "./lib/api";
 import type { ChatAdapter } from "./types/chat";
 import Sidebar from "./components/Sidebar";
 import MainContent from "./components/MainContent";
-import Footer from "./components/Footer";
+import EventsLogsPanel from "./components/EventsLogsPanel";
 import { ConfigEditor } from "./components/editor";
 
 type AppMode = "simulation" | "editor";
@@ -168,33 +168,41 @@ function SimulationView({
     writeStoredControls(key, state.controls as Record<string, number | string>);
   }, [state.controls]);
 
+  const [runPending, setRunPending] = useState(false);
+
   const run = useCallback(async () => {
-    const payload: Record<string, unknown> = {};
-    for (const control of state.spec?.controls || []) {
-      if (!isNumberControl(control)) continue;
-      const raw = state.controls[control.name] ?? control.default;
-      const value = typeof raw === "number" ? raw : Number(String(raw));
-      if (Number.isFinite(value)) payload[control.name] = value;
-    }
-    for (const control of state.spec?.controls || []) {
-      if (!isJsonControl(control)) continue;
-      const raw = state.controls[control.name] ?? control.default;
-      const text = typeof raw === "string" ? raw : String(raw);
-      if (text.trim() === "") continue;
-      try {
-        payload[control.name] = JSON.parse(text);
-      } catch (error) {
-        console.error("Invalid JSON control:", control.name, error);
-        alert(`Invalid JSON for "${control.label || control.name}". Please fix it and try again.`);
-        return;
+    if (runPending) return;
+    setRunPending(true);
+    try {
+      const payload: Record<string, unknown> = {};
+      for (const control of state.spec?.controls || []) {
+        if (!isNumberControl(control)) continue;
+        const raw = state.controls[control.name] ?? control.default;
+        const value = typeof raw === "number" ? raw : Number(String(raw));
+        if (Number.isFinite(value)) payload[control.name] = value;
       }
+      for (const control of state.spec?.controls || []) {
+        if (!isJsonControl(control)) continue;
+        const raw = state.controls[control.name] ?? control.default;
+        const text = typeof raw === "string" ? raw : String(raw);
+        if (text.trim() === "") continue;
+        try {
+          payload[control.name] = JSON.parse(text);
+        } catch (error) {
+          console.error("Invalid JSON control:", control.name, error);
+          alert(`Invalid JSON for "${control.label || control.name}". Please fix it and try again.`);
+          return;
+        }
+      }
+      const duration = Number(payload.duration);
+      const tickDt = typeof payload.tick_dt === "number" ? (payload.tick_dt as number) : undefined;
+      actions.setVisuals([]);
+      actions.setEvents([]);
+      await api.run(duration, tickDt, payload);
+    } finally {
+      setRunPending(false);
     }
-    const duration = Number(payload.duration);
-    const tickDt = typeof payload.tick_dt === "number" ? (payload.tick_dt as number) : undefined;
-    actions.setVisuals([]);
-    actions.setEvents([]);
-    await api.run(duration, tickDt, payload);
-  }, [api, state.controls, state.spec, actions]);
+  }, [api, state.controls, state.spec, actions, runPending]);
 
   const pause = useCallback(async () => {
     await api.pause();
@@ -248,13 +256,13 @@ function SimulationView({
         </div>
       </header>
       <aside className={`app-sidebar-left ${leftDrawerOpen ? 'open' : ''}`}>
-        <Sidebar onRun={run} onPause={pause} onResume={resume} onReset={reset} />
+        <Sidebar onRun={run} onPause={pause} onResume={resume} onReset={reset} runPending={runPending} />
       </aside>
       <main className="app-main">
         <MainContent chatAdapter={chatAdapter} />
       </main>
       <aside className={`app-sidebar-right ${rightDrawerOpen ? 'open' : ''}`}>
-        <Footer />
+        <EventsLogsPanel />
       </aside>
 
       {/* Backdrop for mobile */}

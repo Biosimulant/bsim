@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useUi, useModuleNames, isJsonControl, isNumberControl } from '../app/ui'
 import { formatDuration } from '../lib/time'
 
-type Props = { onRun: () => void; onPause: () => void; onResume: () => void; onReset: () => void }
+type Props = { onRun: () => void; onPause: () => void; onResume: () => void; onReset: () => void; runPending?: boolean }
 
 type PanelId = 'controls' | 'status' | 'modules'
 
@@ -310,7 +310,7 @@ export default function Sidebar(props: Props) {
   )
 }
 
-function ActionsBar({ onRun, onPause, onResume, onReset }: Props) {
+function ActionsBar({ onRun, onPause, onResume, onReset, runPending }: Props) {
   const { state } = useUi()
   const st = state.status
   const controls = Array.isArray(state.spec?.controls) ? state.spec!.controls! : []
@@ -334,8 +334,8 @@ function ActionsBar({ onRun, onPause, onResume, onReset }: Props) {
         <div className="sidebar-actions-value">{Number.isFinite(duration) ? formatDuration(duration) : '—'}</div>
       </div>
       {runEnabled && (
-        <button type="button" className="btn btn-primary" onClick={onRun} disabled={!!st?.running}>
-          Run Simulation
+        <button type="button" className="btn btn-primary" onClick={onRun} disabled={!!st?.running || !!runPending}>
+          {runPending ? 'Starting…' : 'Run Simulation'}
         </button>
       )}
       {pauseResumeEnabled && st?.running && (

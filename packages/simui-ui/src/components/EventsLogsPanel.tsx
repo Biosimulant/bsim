@@ -5,7 +5,7 @@ import type { RunLogEntry } from '../types/api'
 
 type Tab = 'events' | 'logs'
 
-export default function Footer() {
+export default function EventsLogsPanel() {
   const api = useApi()
   const { state, actions } = useUi()
   const events = state.events || []
@@ -14,6 +14,7 @@ export default function Footer() {
   const [tab, setTab] = useState<Tab>('events')
   const [logs, setLogs] = useState<RunLogEntry[]>([])
   const [logsLoading, setLogsLoading] = useState(false)
+  const [logsDownloading, setLogsDownloading] = useState(false)
   const maxSeqRef = useRef(0)
 
   const eventsListRef = useRef<HTMLDivElement>(null)
@@ -101,6 +102,63 @@ export default function Footer() {
     return source.toUpperCase()
   }
 
+  const handleDownloadEvents = useCallback(() => {
+    const data = JSON.stringify(events, null, 2)
+    const blob = new Blob([data], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `simulation-events-${new Date().toISOString()}.json`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }, [events])
+
+  const handleDownloadLogs = useCallback(async () => {
+    if (!api.logs) return
+
+    setLogsDownloading(true)
+    try {
+      const allLogs: RunLogEntry[] = []
+      let sinceSeq: number | undefined = undefined
+      let hasMore = true
+
+      // Fetch all logs by paginating through results
+      while (hasMore) {
+        const resp = await api.logs(sinceSeq)
+        if (resp.items && resp.items.length > 0) {
+          allLogs.push(...resp.items)
+          // Check if there are more logs to fetch
+          const lastSeq = resp.items[resp.items.length - 1].seq
+          sinceSeq = lastSeq
+          // If we got fewer items than expected, we've reached the end
+          hasMore = resp.items.length >= 200 // Assuming 200 is the page size
+        } else {
+          hasMore = false
+        }
+      }
+
+      const data = JSON.stringify(allLogs, null, 2)
+      const blob = new Blob([data], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `simulation-logs-${new Date().toISOString()}.json`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Failed to download logs:', error)
+      // Could add user-visible error notification here
+    } finally {
+      setLogsDownloading(false)
+    }
+  }, [api])
+
   return (
     <div className="footer">
       <div className="footer-content">
@@ -134,10 +192,28 @@ export default function Footer() {
           </div>
           <div className="footer-actions">
             {activeTab === 'events' && events.length > 0 && (
-              <button className="btn btn-small btn-outline" onClick={() => actions.setEvents([])}>Clear</button>
+              <>
+                <button className="btn btn-small btn-primary" onClick={handleDownloadEvents}>
+                  Download
+                </button>
+                <button className="btn btn-small btn-outline" onClick={() => actions.setEvents([])}>
+                  Clear
+                </button>
+              </>
             )}
             {activeTab === 'logs' && logs.length > 0 && (
-              <button className="btn btn-small btn-outline" onClick={() => { setLogs([]); maxSeqRef.current = 0 }}>Clear</button>
+              <>
+                <button
+                  className="btn btn-small btn-primary"
+                  onClick={handleDownloadLogs}
+                  disabled={logsDownloading}
+                >
+                  {logsDownloading ? 'Downloading...' : 'Download'}
+                </button>
+                <button className="btn btn-small btn-outline" onClick={() => { setLogs([]); maxSeqRef.current = 0 }}>
+                  Clear
+                </button>
+              </>
             )}
           </div>
         </header>
