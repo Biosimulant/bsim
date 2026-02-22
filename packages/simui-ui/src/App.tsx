@@ -20,16 +20,19 @@ export interface SimuiAppProps {
   headerLeft?: React.ReactNode;
   headerRight?: React.ReactNode;
   chatAdapter?: ChatAdapter;
+  sidebarAction?: React.ReactNode;
 }
 
 function SimulationView({
   headerLeft,
   headerRight,
   chatAdapter,
+  sidebarAction,
 }: {
   headerLeft?: React.ReactNode;
   headerRight?: React.ReactNode;
   chatAdapter?: ChatAdapter;
+  sidebarAction?: React.ReactNode;
 }) {
   const api = useApi();
   const { state, actions } = useUi();
@@ -256,7 +259,14 @@ function SimulationView({
         </div>
       </header>
       <aside className={`app-sidebar-left ${leftDrawerOpen ? 'open' : ''}`}>
-        <Sidebar onRun={run} onPause={pause} onResume={resume} onReset={reset} runPending={runPending} />
+        <Sidebar
+          onRun={run}
+          onPause={pause}
+          onResume={resume}
+          onReset={reset}
+          runPending={runPending}
+          sidebarAction={sidebarAction}
+        />
       </aside>
       <main className="app-main">
         <MainContent chatAdapter={chatAdapter} />
@@ -293,12 +303,14 @@ function AppCore({
   headerLeft,
   headerRight,
   chatAdapter,
+  sidebarAction,
 }: {
   initialMode?: AppMode;
   editorEnabled: boolean;
   headerLeft?: React.ReactNode;
   headerRight?: React.ReactNode;
   chatAdapter?: ChatAdapter;
+  sidebarAction?: React.ReactNode;
 }) {
   const [mode, setMode] = useState<AppMode>(initialMode ?? "simulation");
 
@@ -355,7 +367,12 @@ function AppCore({
   return (
     <div className="app">
       <div className="app-layout">
-        <SimulationView headerLeft={headerLeft} headerRight={headerRight} chatAdapter={chatAdapter} />
+        <SimulationView
+          headerLeft={headerLeft}
+          headerRight={headerRight}
+          chatAdapter={chatAdapter}
+          sidebarAction={sidebarAction}
+        />
       </div>
       {editorEnabled && (
         <div style={{ position: "fixed", bottom: "16px", right: "16px", zIndex: 1000 }}>
@@ -391,11 +408,13 @@ function AppShell({
   headerLeft,
   headerRight,
   chatAdapter,
+  sidebarAction,
 }: {
   initialMode?: AppMode;
   headerLeft?: React.ReactNode;
   headerRight?: React.ReactNode;
   chatAdapter?: ChatAdapter;
+  sidebarAction?: React.ReactNode;
 }) {
   const api = useApi();
   const editorEnabled = Boolean(api.editor);
@@ -406,6 +425,7 @@ function AppShell({
       headerLeft={headerLeft}
       headerRight={headerRight}
       chatAdapter={chatAdapter}
+      sidebarAction={sidebarAction}
     />
   );
 }
@@ -419,13 +439,20 @@ export const SimuiApp: React.FC<SimuiAppProps> = ({
   headerLeft,
   headerRight,
   chatAdapter,
+  sidebarAction,
 }) => {
   const combinedClassName = className ? `simui-root ${className}` : "simui-root";
   return (
     <div className={combinedClassName} style={{ height, ...style }}>
       <ApiProvider api={api}>
         <UiProvider>
-          <AppShell initialMode={initialMode} headerLeft={headerLeft} headerRight={headerRight} chatAdapter={chatAdapter} />
+          <AppShell
+            initialMode={initialMode}
+            headerLeft={headerLeft}
+            headerRight={headerRight}
+            chatAdapter={chatAdapter}
+            sidebarAction={sidebarAction}
+          />
         </UiProvider>
       </ApiProvider>
     </div>

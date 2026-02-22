@@ -2,7 +2,14 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useUi, useModuleNames, isJsonControl, isNumberControl } from '../app/ui'
 import { formatDuration } from '../lib/time'
 
-type Props = { onRun: () => void; onPause: () => void; onResume: () => void; onReset: () => void; runPending?: boolean }
+type Props = {
+  onRun: () => void;
+  onPause: () => void;
+  onResume: () => void;
+  onReset: () => void;
+  runPending?: boolean;
+  sidebarAction?: React.ReactNode;
+}
 
 type PanelId = 'controls' | 'status' | 'modules'
 
@@ -310,7 +317,7 @@ export default function Sidebar(props: Props) {
   )
 }
 
-function ActionsBar({ onRun, onPause, onResume, onReset, runPending }: Props) {
+function ActionsBar({ onRun, onPause, onResume, onReset, runPending, sidebarAction }: Props) {
   const { state } = useUi()
   const st = state.status
   const controls = Array.isArray(state.spec?.controls) ? state.spec!.controls! : []
@@ -324,6 +331,11 @@ function ActionsBar({ onRun, onPause, onResume, onReset, runPending }: Props) {
   const capabilities = state.spec?.capabilities
   const controlsEnabled = capabilities?.controls ?? true
   const runEnabled = controlsEnabled && (capabilities?.run ?? true)
+  const showRunWhenDisabled = capabilities?.showRunWhenDisabled ?? false
+  const showRunButton = runEnabled || showRunWhenDisabled
+  const runDisabledReason = capabilities?.runDisabledReason || "Run is disabled for this space."
+  const runButtonDisabled = !runEnabled || !!st?.running || !!runPending
+  const runButtonTitle = !runEnabled ? runDisabledReason : undefined
   const pauseResumeEnabled = controlsEnabled && (capabilities?.pauseResume ?? true)
   const resetEnabled = controlsEnabled && (capabilities?.reset ?? true)
 
@@ -333,11 +345,19 @@ function ActionsBar({ onRun, onPause, onResume, onReset, runPending }: Props) {
         <div className="sidebar-actions-label">Duration</div>
         <div className="sidebar-actions-value">{Number.isFinite(duration) ? formatDuration(duration) : '—'}</div>
       </div>
-      {runEnabled && (
-        <button type="button" className="btn btn-primary" onClick={onRun} disabled={!!st?.running || !!runPending}>
+      {showRunButton && (
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={runEnabled ? onRun : undefined}
+          disabled={runButtonDisabled}
+          title={runButtonTitle}
+          aria-label={runButtonTitle || 'Run simulation'}
+        >
           {runPending ? 'Starting…' : 'Run Simulation'}
         </button>
       )}
+      {sidebarAction}
       {pauseResumeEnabled && st?.running && (
         <button type="button" className="btn btn-secondary" onClick={st.paused ? onResume : onPause}>
           {st.paused ? 'Resume' : 'Pause'}

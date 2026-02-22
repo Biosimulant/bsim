@@ -30,6 +30,8 @@ export type ModuleVisuals = { module: string; visuals: VisualSpec[] }
 export type UiCapabilities = {
   controls?: boolean
   run?: boolean
+  showRunWhenDisabled?: boolean
+  runDisabledReason?: string
   pauseResume?: boolean
   reset?: boolean
   editor?: boolean
