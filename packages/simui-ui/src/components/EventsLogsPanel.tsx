@@ -1,41 +1,17 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useApi } from '../app/providers'
 import { useUi } from '../app/ui'
-import type { ChatAdapter } from '../types/chat'
 import type { RunLogEntry } from '../types/api'
-import ChatPanel from './ChatPanel'
 
-type Tab = 'events' | 'logs' | 'chat'
+type Tab = 'events' | 'logs'
 
-type Props = {
-  chatAdapter?: ChatAdapter
-}
-
-/** Read the externally-injected SimUI version from the CSS custom property
- *  `--simui-left-sidebar-version` set by the platform wrapper. */
-function useExternalVersion(): string | null {
-  const [ver, setVer] = useState<string | null>(null)
-  useEffect(() => {
-    const root = document.querySelector('.simui-root') as HTMLElement | null
-    if (!root) return
-    const raw = getComputedStyle(root).getPropertyValue('--simui-left-sidebar-version').trim()
-    // Value is JSON-stringified by the platform (e.g. '"SimUI f829e20"')
-    if (raw) {
-      try { setVer(JSON.parse(raw)) } catch { setVer(raw) }
-    }
-  }, [])
-  return ver
-}
-
-export default function BottomPanel({ chatAdapter }: Props) {
+export default function EventsLogsPanel() {
   const api = useApi()
   const { state, actions } = useUi()
   const events = state.events || []
   const isRunning = state.status?.running ?? false
   const bsimVersion = state.spec?.bsim_version
-  const externalVersion = useExternalVersion()
 
-  const [expanded, setExpanded] = useState(false)
   const [tab, setTab] = useState<Tab>('events')
   const [logs, setLogs] = useState<RunLogEntry[]>([])
   const [logsLoading, setLogsLoading] = useState(false)
@@ -46,13 +22,6 @@ export default function BottomPanel({ chatAdapter }: Props) {
   const logsListRef = useRef<HTMLDivElement>(null)
   const [autoScrollEvents, setAutoScrollEvents] = useState(true)
   const [autoScrollLogs, setAutoScrollLogs] = useState(true)
-
-  // Auto-expand when events arrive during a run
-  useEffect(() => {
-    if (events.length > 0 && isRunning && !expanded) {
-      setExpanded(true)
-    }
-  }, [events.length, isRunning])
 
   // Auto-scroll events list
   useEffect(() => {
@@ -83,6 +52,7 @@ export default function BottomPanel({ chatAdapter }: Props) {
   // Poll for run logs when the logs tab is active
   useEffect(() => {
     if (tab !== 'logs' || !api.logs) return
+
     let cancelled = false
     const fetchLogs = async () => {
       if (cancelled) return
@@ -108,13 +78,17 @@ export default function BottomPanel({ chatAdapter }: Props) {
         if (!cancelled) setLogsLoading(false)
       }
     }
+
     void fetchLogs()
     const interval = setInterval(fetchLogs, 3000)
-    return () => { cancelled = true; clearInterval(interval) }
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
   }, [tab, api, isRunning])
 
   const hasLogs = !!api.logs
-  const hasChat = !!chatAdapter
+  const activeTab = hasLogs ? tab : 'events'
 
   const levelClass = (level: string) => {
     if (level === 'error') return 'log-level log-level--error'
@@ -133,6 +107,7 @@ export default function BottomPanel({ chatAdapter }: Props) {
     const data = JSON.stringify(events, null, 2)
     const blob = new Blob([data], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
+
     const link = document.createElement('a')
     link.href = url
     link.download = `simulation-events-${new Date().toISOString()}.json`
@@ -144,25 +119,32 @@ export default function BottomPanel({ chatAdapter }: Props) {
 
   const handleDownloadLogs = useCallback(async () => {
     if (!api.logs) return
+
     setLogsDownloading(true)
     try {
       const allLogs: RunLogEntry[] = []
       let sinceSeq: number | undefined = undefined
       let hasMore = true
+
+      // Fetch all logs by paginating through results
       while (hasMore) {
         const resp = await api.logs(sinceSeq)
         if (resp.items && resp.items.length > 0) {
           allLogs.push(...resp.items)
+          // Check if there are more logs to fetch
           const lastSeq = resp.items[resp.items.length - 1].seq
           sinceSeq = lastSeq
-          hasMore = resp.items.length >= 200
+          // If we got fewer items than expected, we've reached the end
+          hasMore = resp.items.length >= 200 // Assuming 200 is the page size
         } else {
           hasMore = false
         }
       }
+
       const data = JSON.stringify(allLogs, null, 2)
       const blob = new Blob([data], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
+
       const link = document.createElement('a')
       link.href = url
       link.download = `simulation-logs-${new Date().toISOString()}.json`
@@ -172,95 +154,101 @@ export default function BottomPanel({ chatAdapter }: Props) {
       URL.revokeObjectURL(url)
     } catch (error) {
       console.error('Failed to download logs:', error)
+      // Could add user-visible error notification here
     } finally {
       setLogsDownloading(false)
     }
   }, [api])
 
-  const activeTab: Tab = tab === 'logs' && !hasLogs ? 'events' : tab === 'chat' && !hasChat ? 'events' : tab
-
   return (
-    <div className={`bottom-panel ${expanded ? 'bottom-panel--expanded' : ''}`}>
-      {/* Collapsed bar — always visible */}
-      <button
-        type="button"
-        className="bottom-panel-bar"
-        onClick={() => setExpanded((p) => !p)}
-      >
-        <svg
-          className={`bottom-panel-chevron ${expanded ? 'open' : ''}`}
-          width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-        >
-          <polyline points="18 15 12 9 6 15" />
-        </svg>
-
-        <div className="bottom-panel-tabs-inline">
-          <span
-            className={`bottom-tab-inline ${activeTab === 'events' ? 'bottom-tab-inline--active' : ''}`}
-            onClick={(e) => { e.stopPropagation(); setTab('events'); if (!expanded) setExpanded(true) }}
-          >
-            Events{events.length > 0 && <span className="bottom-tab-badge">{events.length}</span>}
-          </span>
-          {hasLogs && (
-            <span
-              className={`bottom-tab-inline ${activeTab === 'logs' ? 'bottom-tab-inline--active' : ''}`}
-              onClick={(e) => { e.stopPropagation(); setTab('logs'); if (!expanded) setExpanded(true) }}
-            >
-              Logs{logs.length > 0 && <span className="bottom-tab-badge">{logs.length}</span>}
-            </span>
-          )}
-          {hasChat && (
-            <span
-              className={`bottom-tab-inline ${activeTab === 'chat' ? 'bottom-tab-inline--active' : ''}`}
-              onClick={(e) => { e.stopPropagation(); setTab('chat'); if (!expanded) setExpanded(true) }}
-            >
-              Chat
-            </span>
-          )}
-        </div>
-
-        <div className="bottom-panel-actions" onClick={(e) => e.stopPropagation()}>
-          {externalVersion && (
-            <span className="bottom-version-chip" title={externalVersion}>
-              {externalVersion}
-            </span>
-          )}
-          {bsimVersion && (
-            <span className="bottom-version-chip" title={`BioSim library version ${bsimVersion}`}>
-              bsim v{bsimVersion}
-            </span>
-          )}
-          {activeTab === 'events' && events.length > 0 && (
-            <>
-              <button className="btn btn-small btn-primary bottom-icon-btn" onClick={handleDownloadEvents} title="Download events">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 3v11m0 0 4-4m-4 4-4-4M5 19h14" />
-                </svg>
-              </button>
-              <button className="btn btn-small btn-outline" onClick={() => actions.setEvents([])}>Clear</button>
-            </>
-          )}
-          {activeTab === 'logs' && logs.length > 0 && (
-            <>
-              <button
-                className="btn btn-small btn-primary bottom-icon-btn"
-                onClick={handleDownloadLogs}
-                disabled={logsDownloading}
-                title={logsDownloading ? 'Downloading...' : 'Download logs'}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 3v11m0 0 4-4m-4 4-4-4M5 19h14" />
-                </svg>
-              </button>
-              <button className="btn btn-small btn-outline" onClick={() => { setLogs([]); maxSeqRef.current = 0 }}>Clear</button>
-            </>
-          )}
-        </div>
-      </button>
-
-      {/* Expanded body */}
-      {expanded && (
-        <div className="bottom-panel-body">
+    <div className="footer">
+      <div className="footer-content">
+        <header className="footer-header">
+          <div className="footer-title-section">
+            {hasLogs ? (
+              <div className="footer-tabs">
+                <button
+                  className={`footer-tab ${activeTab === 'events' ? 'footer-tab--active' : ''}`}
+                  onClick={() => setTab('events')}
+                >
+                  Events
+                  {events.length > 0 && <span className="footer-tab-badge">{events.length}</span>}
+                </button>
+                <button
+                  className={`footer-tab ${activeTab === 'logs' ? 'footer-tab--active' : ''}`}
+                  onClick={() => setTab('logs')}
+                >
+                  Logs
+                  {logs.length > 0 && <span className="footer-tab-badge">{logs.length}</span>}
+                </button>
+              </div>
+            ) : (
+              <>
+                <h2 className="footer-title">Event Log</h2>
+                <div className="event-stats">
+                  <div className="stat-item"><span className="stat-label">Total:</span><span className="stat-value">{events.length}</span></div>
+                </div>
+              </>
+            )}
+            {bsimVersion && (
+              <span className="footer-version-chip" title={`BioSim library version ${bsimVersion}`}>
+                bsim v{bsimVersion}
+              </span>
+            )}
+          </div>
+          <div className="footer-actions">
+            {activeTab === 'events' && events.length > 0 && (
+              <>
+                <button
+                  className="btn btn-small btn-primary footer-icon-button"
+                  onClick={handleDownloadEvents}
+                  title="Download events"
+                  aria-label="Download events"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M12 3v11m0 0 4-4m-4 4-4-4M5 19h14"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+                <button className="btn btn-small btn-outline" onClick={() => actions.setEvents([])}>
+                  Clear
+                </button>
+              </>
+            )}
+            {activeTab === 'logs' && logs.length > 0 && (
+              <>
+                <button
+                  className="btn btn-small btn-primary footer-icon-button"
+                  onClick={handleDownloadLogs}
+                  disabled={logsDownloading}
+                  title={logsDownloading ? 'Downloading logs...' : 'Download logs'}
+                  aria-label={logsDownloading ? 'Downloading logs' : 'Download logs'}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M12 3v11m0 0 4-4m-4 4-4-4M5 19h14"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+                <button className="btn btn-small btn-outline" onClick={() => { setLogs([]); maxSeqRef.current = 0 }}>
+                  Clear
+                </button>
+              </>
+            )}
+          </div>
+        </header>
+        <div className="footer-body">
           {activeTab === 'events' && (
             <>
               {events.length === 0 ? (
@@ -277,11 +265,7 @@ export default function BottomPanel({ chatAdapter }: Props) {
                   <div className="event-list-header">
                     <span className="event-count">{events.length} event{events.length !== 1 ? 's' : ''}</span>
                     <div className="event-controls">
-                      <button
-                        className={`btn btn-small ${autoScrollEvents ? 'active' : ''}`}
-                        onClick={() => setAutoScrollEvents(!autoScrollEvents)}
-                        title={autoScrollEvents ? 'Auto-scroll enabled' : 'Auto-scroll disabled'}
-                      >
+                      <button className={`btn btn-small ${autoScrollEvents ? 'active' : ''}`} onClick={() => setAutoScrollEvents(!autoScrollEvents)} title={autoScrollEvents ? 'Auto-scroll enabled' : 'Auto-scroll disabled'}>
                         {'\u{1F4CC}'}
                       </button>
                     </div>
@@ -302,7 +286,6 @@ export default function BottomPanel({ chatAdapter }: Props) {
               )}
             </>
           )}
-
           {activeTab === 'logs' && (
             <>
               {logs.length === 0 ? (
@@ -316,11 +299,7 @@ export default function BottomPanel({ chatAdapter }: Props) {
                   <div className="event-list-header">
                     <span className="event-count">{logs.length} log entr{logs.length !== 1 ? 'ies' : 'y'}</span>
                     <div className="event-controls">
-                      <button
-                        className={`btn btn-small ${autoScrollLogs ? 'active' : ''}`}
-                        onClick={() => setAutoScrollLogs(!autoScrollLogs)}
-                        title={autoScrollLogs ? 'Auto-scroll enabled' : 'Auto-scroll disabled'}
-                      >
+                      <button className={`btn btn-small ${autoScrollLogs ? 'active' : ''}`} onClick={() => setAutoScrollLogs(!autoScrollLogs)} title={autoScrollLogs ? 'Auto-scroll enabled' : 'Auto-scroll disabled'}>
                         {'\u{1F4CC}'}
                       </button>
                     </div>
@@ -341,14 +320,8 @@ export default function BottomPanel({ chatAdapter }: Props) {
               )}
             </>
           )}
-
-          {activeTab === 'chat' && chatAdapter && (
-            <div className="bottom-chat-wrap">
-              <ChatPanel adapter={chatAdapter} />
-            </div>
-          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }
