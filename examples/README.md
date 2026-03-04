@@ -14,7 +14,7 @@ SimUI
 - `ui_demo.py`: Minimal SimUI demo (requires UI extras).
 - `multi_module_ui_demo.py`: Multi-module visuals demo in SimUI (large defaults).
 
-Advanced models, spaces, and domain demos
+Advanced models, labs, and domain demos
 -----------------------------------------
 
 For neuroscience/ecology demos, wiring configs, and model-pack templates, see the companion repo:

@@ -36,7 +36,7 @@ biosim is a modular biological simulation library. It centers around four ideas:
 - **Ecology**: predator-prey dynamics, population monitoring, phase-space plots.
 - **Brain/Vision**: Eye → LGN → Superior Colliculus sensory pipeline.
 
-Curated model packs and composed spaces live in the companion [`Biosimulant/models`](https://github.com/Biosimulant/models) repo.
+Curated model packs and composed labs live in the companion [`Biosimulant/models`](https://github.com/Biosimulant/models) repo.
 
 ## Minimal data example (after wiring Eye -> LGN on port "visual_stream")
 - Run: `world.run(duration=0.2, tick_dt=0.1)` to advance the orchestrator and dispatch signals.

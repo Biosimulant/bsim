@@ -9,7 +9,7 @@ Run an example
 - World, events, and biosignals: `python examples/world_simulation.py`
 - Declarative wiring (code): `python examples/wiring_builder_demo.py`
 - Declarative wiring (files):
-  - Load a YAML/TOML wiring spec and run (bring your own file, or use one from `models`):
+  - Load a YAML/TOML wiring spec and run (bring your own file, or use one from the models labs directory):
     - https://github.com/Biosimulant/models/tree/main/spaces
     - `python -c "import biosim; w=biosim.BioWorld(); biosim.load_wiring(w, '<path-to-wiring.yaml>'); w.run(duration=0.5, tick_dt=0.1)"`
 

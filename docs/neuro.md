@@ -40,16 +40,16 @@ pip install -e ../biosim            # Install biosim core
 pip install -e ../biosim'[ui]'      # Optional: for SimUI
 ```
 
-### Running Spaces
+### Running Labs
 
-Pre-composed simulation spaces are in `models/spaces/`:
+Pre-composed simulation labs are in `models/spaces/`:
 
-**Single neuron space:**
+**Single neuron lab:**
 ```bash
 python -m biosim spaces/neuro-single-neuron/wiring.yaml
 ```
 
-**E/I microcircuit space (50 neurons):**
+**E/I microcircuit lab (50 neurons):**
 ```bash
 python -m biosim spaces/neuro-microcircuit/wiring.yaml
 ```
@@ -414,7 +414,7 @@ wiring:
 
 Balanced excitation/inhibition with Poisson drive.
 
-See `models/spaces/neuro-microcircuit/space.yaml` for the composed space manifest.
+See `models/spaces/neuro-microcircuit/space.yaml` for the composed lab manifest.
 
 Key observations:
 - **Balanced E/I**: Asynchronous irregular (AI) spiking
@@ -425,11 +425,11 @@ Key observations:
 
 Classic conductance-based model with detailed ion channel dynamics.
 
-See `models/spaces/neuro-hodgkin-huxley-neuron/space.yaml` for the composed space manifest.
+See `models/spaces/neuro-hodgkin-huxley-neuron/space.yaml` for the composed lab manifest.
 
 ## Config Files
 
-Example wiring specs are in `models/spaces/`:
+Example wiring specs are in `models/spaces/` (lab manifests):
 
 - `spaces/neuro-single-neuron/` - Single Izhikevich neuron + step current + monitors
 - `spaces/neuro-microcircuit/` - 50-neuron E/I network with Poisson drive
