@@ -2,6 +2,7 @@ import React, { useMemo } from 'react'
 import { useUi, useModuleNames, useVisualsByModule } from '../app/ui'
 import ModuleVisuals from './ModuleVisuals'
 import DescriptionPanel from './DescriptionPanel'
+import StatusPanel from './StatusPanel'
 import WiringPanel from './WiringPanel'
 
 function EmptyState({ message, description }: { message: string; description?: string }) {
@@ -32,6 +33,7 @@ export default function MainContent() {
   const infoPanels = (
     <>
       {description && <DescriptionPanel description={description} />}
+      <StatusPanel />
       {hasWiring && <WiringPanel />}
     </>
   )

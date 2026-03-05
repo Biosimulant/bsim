@@ -12,7 +12,7 @@ type Props = {
   sidebarAction?: React.ReactNode;
 }
 
-type PanelId = 'controls' | 'status' | 'modules'
+type PanelId = 'controls' | 'modules'
 
 function toFiniteNumber(value: unknown): number {
   if (value === '' || value === null || value === undefined) return Number.NaN
@@ -52,48 +52,6 @@ function SidebarPanel({
       {open && <div className="sidebar-panel-body">{children}</div>}
     </section>
   )
-}
-
-function StatusDisplay() {
-  const { state } = useUi()
-  const st = state.status
-  const numberControls = (state.spec?.controls || []).filter(isNumberControl)
-  const controlDefault = (name: string): number | undefined => numberControls.find((c) => c.name === name)?.default
-  const duration = toFiniteNumber(state.controls.duration ?? controlDefault('duration'))
-  const tickDt = toFiniteNumber(state.controls.tick_dt ?? controlDefault('tick_dt'))
-  const progress = resolveRunProgress({ status: st, duration, tickDt })
-  const progressDisplay = progress.progressPct !== null && (
-    <div className="sim-progress-row" title={progress.estimated ? 'Estimated from ticks' : 'Simulation-time progress'}>
-      <span className="sim-progress-label">{progress.progressLabel}</span>
-      <div className="sim-progress-track" aria-hidden="true">
-        <div className="sim-progress-fill" style={{ width: `${progress.progressPct}%` }} />
-      </div>
-    </div>
-  )
-
-  if (!st) return <div className="status-display"><div className="status-badge status-unknown">Unknown</div></div>
-  if (st.error) return (
-    <div className="status-display">
-      <div className="status-badge status-error">Error</div>
-      <div className="status-message error">{st.error.message}</div>
-      {progressDisplay}
-    </div>
-  )
-  if (st.running) return (
-    <div className="status-display">
-      <div className={`status-badge ${st.paused ? 'status-paused' : 'status-running'}`}>{st.paused ? 'Paused' : 'Running'}</div>
-      <div className="status-info">Ticks: {st.tick_count?.toLocaleString() || 0}</div>
-      {progressDisplay}
-    </div>
-  )
-  if (progressDisplay) return (
-    <div className="status-display">
-      <div className="status-badge status-idle">Idle</div>
-      <div className="status-info">Last run</div>
-      {progressDisplay}
-    </div>
-  )
-  return <div className="status-display"><div className="status-badge status-idle">Idle</div></div>
 }
 
 function Controls() {
@@ -297,31 +255,12 @@ export default function Sidebar(props: Props) {
   // Users can expand/collapse any panel independently.
   const [open, setOpen] = useState<Record<PanelId, boolean>>({
     controls: false,
-    status: false,
     modules: false,
   })
 
   const toggle = useCallback((id: PanelId) => {
     setOpen((prev) => ({ ...prev, [id]: !prev[id] }))
   }, [])
-
-  const statusSummary = useMemo(() => {
-    const st = state.status
-    if (!st) return 'Unknown'
-    const numberControls = (state.spec?.controls || []).filter(isNumberControl)
-    const controlDefault = (name: string): number | undefined => numberControls.find((c) => c.name === name)?.default
-    const duration = toFiniteNumber(state.controls.duration ?? controlDefault('duration'))
-    const tickDt = toFiniteNumber(state.controls.tick_dt ?? controlDefault('tick_dt'))
-    const progress = resolveRunProgress({ status: st, duration, tickDt })
-    if (st.error) return progress.progressPct !== null ? `Error · ${progress.progressLabel}` : 'Error'
-    if (st.running) {
-      return progress.progressPct !== null
-        ? `${st.paused ? 'Paused' : 'Running'} · ${progress.progressLabel}`
-        : `${st.paused ? 'Paused' : 'Running'} · Ticks: ${st.tick_count?.toLocaleString() || 0}`
-    }
-    if (progress.progressPct !== null) return `Idle · Last run: ${progress.progressLabel}`
-    return 'Idle'
-  }, [state.controls.duration, state.controls.tick_dt, state.spec?.controls, state.status])
 
   const controlsSummary = useMemo(() => {
     const controls = Array.isArray(state.spec?.controls) ? state.spec!.controls! : []
@@ -337,9 +276,6 @@ export default function Sidebar(props: Props) {
   return (
     <div className="sidebar">
       <div className="sidebar-content">
-        <SidebarPanel id="status" title="Status" summary={statusSummary} open={open.status} onToggle={toggle}>
-          <StatusDisplay />
-        </SidebarPanel>
         <SidebarPanel id="controls" title="Controls" summary={controlsSummary} open={open.controls} onToggle={toggle}>
           <Controls />
         </SidebarPanel>
