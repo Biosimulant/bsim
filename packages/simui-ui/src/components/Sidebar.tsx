@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useUi, useModuleNames, isJsonControl, isNumberControl } from '../app/ui'
-import { formatDuration } from '../lib/time'
 import { resolveRunProgress } from '../lib/progress'
+import { formatDuration } from '../lib/time'
 
 type Props = {
   onRun: () => void;
@@ -12,46 +12,10 @@ type Props = {
   sidebarAction?: React.ReactNode;
 }
 
-type PanelId = 'controls' | 'modules'
-
 function toFiniteNumber(value: unknown): number {
   if (value === '' || value === null || value === undefined) return Number.NaN
   const n = typeof value === 'number' ? value : Number(String(value))
   return Number.isFinite(n) ? n : Number.NaN
-}
-
-function SidebarPanel({
-  id,
-  title,
-  summary,
-  open,
-  onToggle,
-  children,
-}: {
-  id: PanelId
-  title: string
-  summary?: string
-  open: boolean
-  onToggle: (id: PanelId) => void
-  children: React.ReactNode
-}) {
-  return (
-    <section className={`sidebar-panel ${open ? 'is-open' : 'is-closed'}`}>
-      <button
-        type="button"
-        className="sidebar-panel-header"
-        onClick={() => onToggle(id)}
-        aria-expanded={open}
-      >
-        <span className={`sidebar-panel-chevron ${open ? 'open' : ''}`} aria-hidden="true">
-          ▸
-        </span>
-        <span className="sidebar-panel-title">{title}</span>
-        {summary && <span className="sidebar-panel-summary">{summary}</span>}
-      </button>
-      {open && <div className="sidebar-panel-body">{children}</div>}
-    </section>
-  )
 }
 
 function Controls() {
@@ -59,9 +23,6 @@ function Controls() {
   const st = state.status
   const capabilities = state.spec?.capabilities
   const controlsEnabled = capabilities?.controls ?? true
-  const runEnabled = controlsEnabled && (capabilities?.run ?? true)
-  const pauseResumeEnabled = controlsEnabled && (capabilities?.pauseResume ?? true)
-  const resetEnabled = controlsEnabled && (capabilities?.reset ?? true)
   const moduleNames = useModuleNames()
   const numberControls = (state.spec?.controls || []).filter(isNumberControl)
   const hiddenJson = new Set(['wiring', 'wiring_layout', 'module_ports', 'models'])
@@ -226,7 +187,7 @@ function ModuleManager() {
   }, [state.visibleModules, actions])
   const showAll = useCallback(() => actions.setVisibleModules(new Set(moduleNames)), [moduleNames, actions])
   const hideAll = useCallback(() => actions.setVisibleModules(new Set()), [actions])
-  if (moduleNames.length === 0) return <div className="modules"><div className="empty-state"><p>No modules available</p></div></div>
+  if (moduleNames.length === 0) return null
   return (
     <div className="modules">
       <div className="module-list">
@@ -246,68 +207,33 @@ function ModuleManager() {
 }
 
 export default function Sidebar(props: Props) {
-  return (
-    <div className="sidebar">
-      <div className="sidebar-content">
-        <Controls />
-        <ModuleManager />
-        <ActionsBar {...props} />
-      </div>
-    </div>
-  )
-}
+  const moduleNames = useModuleNames()
+  const numberControls = useUi().state.spec?.controls?.filter(isNumberControl) || []
+  const totalControls = numberControls.length
+  const [open, setOpen] = useState(true)
 
-function ActionsBar({ onRun, onPause, onResume, onReset, runPending, sidebarAction }: Props) {
-  const { state } = useUi()
-  const st = state.status
-  const controls = Array.isArray(state.spec?.controls) ? state.spec!.controls! : []
-  const durationControl = controls.find((c) => isNumberControl(c) && c.name === 'duration')
-  const durationDefault = durationControl && isNumberControl(durationControl) ? durationControl.default : undefined
-  const duration = (() => {
-    const raw = state.controls.duration ?? durationDefault
-    const n = typeof raw === 'number' ? raw : Number(String(raw))
-    return Number.isFinite(n) ? n : NaN
-  })()
-  const capabilities = state.spec?.capabilities
-  const controlsEnabled = capabilities?.controls ?? true
-  const runEnabled = controlsEnabled && (capabilities?.run ?? true)
-  const showRunWhenDisabled = capabilities?.showRunWhenDisabled ?? false
-  const showRunButton = runEnabled || showRunWhenDisabled
-  const runDisabledReason = capabilities?.runDisabledReason || "Run is disabled for this space."
-  const runButtonDisabled = !runEnabled || !!st?.running || !!runPending
-  const runButtonTitle = !runEnabled ? runDisabledReason : undefined
-  const pauseResumeEnabled = controlsEnabled && (capabilities?.pauseResume ?? true)
-  const resetEnabled = controlsEnabled && (capabilities?.reset ?? true)
+  const summary = `${totalControls} controls · ${moduleNames.length} modules`
 
   return (
-    <div className="sidebar-actions">
-      <div className="sidebar-actions-row">
-        <div className="sidebar-actions-label">Duration</div>
-        <div className="sidebar-actions-value">{Number.isFinite(duration) ? formatDuration(duration) : '—'}</div>
-      </div>
-      {showRunButton && (
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={runEnabled ? onRun : undefined}
-          disabled={runButtonDisabled}
-          title={runButtonTitle}
-          aria-label={runButtonTitle || 'Run simulation'}
-        >
-          {runPending ? 'Starting…' : 'Run Simulation'}
-        </button>
+    <section className={`sidebar-panel ${open ? 'is-open' : 'is-closed'}`} style={{ margin: '0 12px' }}>
+      <button
+        type="button"
+        className="sidebar-panel-header"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={open}
+      >
+        <span className={`sidebar-panel-chevron ${open ? 'open' : ''}`} aria-hidden="true">
+          ▸
+        </span>
+        <span className="sidebar-panel-title">Settings</span>
+        <span className="sidebar-panel-summary">{summary}</span>
+      </button>
+      {open && (
+        <div className="sidebar-panel-body">
+          <Controls />
+          <ModuleManager />
+        </div>
       )}
-      {sidebarAction}
-      {pauseResumeEnabled && st?.running && (
-        <button type="button" className="btn btn-secondary" onClick={st.paused ? onResume : onPause}>
-          {st.paused ? 'Resume' : 'Pause'}
-        </button>
-      )}
-      {resetEnabled && (
-        <button type="button" className="btn btn-outline" onClick={onReset}>
-          Reset
-        </button>
-      )}
-    </div>
+    </section>
   )
 }

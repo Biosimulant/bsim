@@ -242,7 +242,7 @@
 .module-checkbox { width: 16px; height: 16px; }
 
 /* Modules grid (main content area) */
-.modules-grid { display: flex; flex-direction: column; gap: var(--gap-5); padding: var(--gap-4); }
+.modules-grid { display: flex; flex-direction: column; gap: var(--gap-5); padding: 8px var(--gap-4) var(--gap-4); }
 
 /* Main content tabs */
 .main-tabs {
