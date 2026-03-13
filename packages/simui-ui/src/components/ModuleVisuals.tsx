@@ -5,6 +5,7 @@ import Bar from '../renderers/Bar'
 import Table from '../renderers/Table'
 import ImageView from '../renderers/ImageView'
 import Graph from '../renderers/Graph'
+import TextView from '../renderers/TextView'
 
 const RENDERERS: Record<string, React.ComponentType<{ data: any; isFullscreen?: boolean }>> = {
   timeseries: Timeseries,
@@ -12,6 +13,7 @@ const RENDERERS: Record<string, React.ComponentType<{ data: any; isFullscreen?: 
   table: Table,
   image: ImageView,
   graph: Graph,
+  text: TextView,
 }
 
 function FullscreenButton({ isFullscreen, onClick }: { isFullscreen: boolean; onClick: () => void }) {
