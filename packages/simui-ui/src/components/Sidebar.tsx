@@ -246,42 +246,11 @@ function ModuleManager() {
 }
 
 export default function Sidebar(props: Props) {
-  const { state } = useUi()
-  const moduleNames = useModuleNames()
-  const totalModules = moduleNames.length
-  const selectedModules = state.visibleModules.size || totalModules
-
-  // Reduce scroll by opening only one panel by default.
-  // Users can expand/collapse any panel independently.
-  const [open, setOpen] = useState<Record<PanelId, boolean>>({
-    controls: false,
-    modules: false,
-  })
-
-  const toggle = useCallback((id: PanelId) => {
-    setOpen((prev) => ({ ...prev, [id]: !prev[id] }))
-  }, [])
-
-  const controlsSummary = useMemo(() => {
-    const controls = Array.isArray(state.spec?.controls) ? state.spec!.controls! : []
-    const count = controls.filter((c) => isNumberControl(c) || isJsonControl(c)).length
-    return count ? `${count} controls` : 'No controls'
-  }, [state.spec])
-
-  const modulesSummary = useMemo(() => {
-    if (totalModules === 0) return 'No modules'
-    return `${selectedModules}/${totalModules} shown`
-  }, [selectedModules, totalModules])
-
   return (
     <div className="sidebar">
       <div className="sidebar-content">
-        <SidebarPanel id="controls" title="Controls" summary={controlsSummary} open={open.controls} onToggle={toggle}>
-          <Controls />
-        </SidebarPanel>
-        <SidebarPanel id="modules" title="Modules" summary={modulesSummary} open={open.modules} onToggle={toggle}>
-          <ModuleManager />
-        </SidebarPanel>
+        <Controls />
+        <ModuleManager />
         <ActionsBar {...props} />
       </div>
     </div>

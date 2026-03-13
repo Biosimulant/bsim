@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react'
 import { useUi, useModuleNames, useVisualsByModule } from '../app/ui'
 import ModuleVisuals from './ModuleVisuals'
-import DescriptionPanel from './DescriptionPanel'
 import StatusPanel from './StatusPanel'
 import WiringPanel from './WiringPanel'
 
@@ -24,7 +23,6 @@ export default function MainContent() {
     [allModules, state.visibleModules]
   )
   const visualsByModule = useVisualsByModule()
-  const description = state.spec?.description
   const hasWiring = useMemo(
     () => Boolean(state.spec?.controls?.some((c) => (c as any).type === 'json' && (c as any).name === 'wiring')),
     [state.spec]
@@ -32,7 +30,6 @@ export default function MainContent() {
 
   const infoPanels = (
     <>
-      {description && <DescriptionPanel description={description} />}
       <StatusPanel />
       {hasWiring && <WiringPanel />}
     </>
